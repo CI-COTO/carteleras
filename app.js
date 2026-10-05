@@ -8,12 +8,12 @@
    ========================================================= */
 
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID",
+  apiKey: "AIzaSyDjwOMahzo3jvxkSLShUV4YR4lXpnh26Jg",
+  authDomain: "calendario-cartelera.firebaseapp.com",
+  projectId: "calendario-cartelera",
+  storageBucket: "calendario-cartelera.firebasestorage.app",
+  messagingSenderId: "360395549011",
+  appId: "1:360395549011:web:b9af6933d54f1fcea359a6"
 };
 
 const FIREBASE_VERSION = "10.12.2";
