@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calendarización Carteleras Digitales · Somos Coto</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Oswald:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+
+    <header class="top">
+      <p class="status" id="status" role="status"></p>
+      <h1 class="month-title">
+        <span class="month-name" id="monthName"></span>
+        <span class="year" id="yearNum"></span>
+      </h1>
+      <h2 class="subtitle">CALENDARIZACIÓN CARTELERAS DIGITALES</h2>
+
+      <nav class="month-nav" aria-label="Cambiar de mes">
+        <button type="button" class="nav-arrow" id="prevMonth" aria-label="Mes anterior">‹</button>
+        <div class="month-tabs" id="monthTabs"></div>
+        <button type="button" class="nav-arrow" id="nextMonth" aria-label="Mes siguiente">›</button>
+      </nav>
+    </header>
+
+    <section class="calendar" aria-label="Calendario del mes">
+      <div class="weekdays" aria-hidden="true">
+        <div>Domingo</div><div>Lunes</div><div>Martes</div><div>Miércoles</div>
+        <div>Jueves</div><div>Viernes</div><div>Sábado</div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <footer class="legend" id="legend" aria-label="Categorías"></footer>
+  </main>
+
+  <!-- Detalle de una comunicación -->
+  <dialog id="detailDialog" aria-labelledby="detailTitle">
+    <div class="sheet" id="detailSheet"></div>
+  </dialog>
+
+  <!-- Formulario de alta / edición -->
+  <dialog id="formDialog" aria-labelledby="formHeading">
+    <form class="sheet" id="commForm" novalidate>
+      <h3 id="formHeading">Nueva comunicación</h3>
+
+      <label class="field">
+        <span class="field-label">Título</span>
+        <input type="text" id="fTitulo" maxlength="100" required placeholder="Ej.: Día de la Madre">
+      </label>
+
+      <label class="field">
+        <span class="field-label">Fecha en que debe estar terminada</span>
+        <input type="date" id="fFecha" required min="2026-10-01" max="2026-12-31">
+      </label>
+
+      <fieldset class="field">
+        <legend class="field-label">Categoría</legend>
+        <div class="chips" id="fCategorias"></div>
+      </fieldset>
+
+      <fieldset class="field">
+        <legend class="field-label">Carteleras destino</legend>
+        <div class="checks" id="fCarteleras"></div>
+      </fieldset>
+
+      <label class="field">
+        <span class="field-label">Descripción <small>(opcional)</small></span>
+        <textarea id="fDescripcion" rows="3" maxlength="500" placeholder="Detalles, links o notas para el equipo"></textarea>
+      </label>
+
+      <p class="form-error" id="formError" role="alert" hidden></p>
+
+      <div class="actions">
+        <button type="button" class="btn ghost" id="formCancel">Cancelar</button>
+        <button type="submit" class="btn primary" id="formSave">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
