@@ -1,0 +1,45 @@
+# Recordatorio diario de carteleras digitales por Teams.
+# Corre de lunes a viernes a las 6:45 (hora Argentina) para que el aviso
+# esté en Teams al arrancar el día. GitHub puede demorarlo unos minutos.
+# También se puede disparar a mano desde la pestaña "Actions".
+
+name: Recordatorio Teams
+
+on:
+  schedule:
+    - cron: "45 9 * * 1-5" # 09:45 UTC = 06:45 en Argentina (UTC-3)
+  workflow_dispatch:
+    inputs:
+      prueba:
+        description: "Solo mostrar la tarjeta en el log, sin enviarla a Teams"
+        type: boolean
+        default: false
+      fecha:
+        description: "Simular otro día (AAAA-MM-DD). Vacío = hoy"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  recordatorio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enviar recordatorio
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          CALENDARIO_URL: ${{ vars.CALENDARIO_URL }}
+          DIAS_AVISO: ${{ vars.DIAS_AVISO || '3' }}
+          ENVIAR_SI_VACIO: ${{ vars.ENVIAR_SI_VACIO || 'false' }}
+          MODO_PRUEBA: ${{ inputs.prueba && 'true' || 'false' }}
+          FECHA_HOY: ${{ inputs.fecha }}
+        run: node recordatorios/enviar-recordatorio.mjs
