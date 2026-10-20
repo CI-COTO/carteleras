@@ -27,13 +27,13 @@ Las comunicaciones viejas pueden no tener `archivo`: se muestra el título en gr
 
 ## Reglas de negocio
 - Solo **Subida** genera el cartel ATRASADA y los avisos de Teams. Publicada y Bajada son solo seguimiento.
-- Rango de fechas: octubre a diciembre de 2026 (en `app.js`, `firestore.rules` y la lista de feriados del script). 2027 se suma más adelante.
+- Rango de fechas: octubre de 2026 a diciembre de 2027 (en `app.js`, `index.html`, `firestore.rules` y la lista de feriados del script). Los no laborables turísticos de 2027 se suman cuando se publiquen.
 - Feriados fijos en `app.js` (`FERIADOS`) y copia en `enviar-recordatorio.mjs`: si cambian, actualizar los dos.
 - Alerta de Teams: lunes y miércoles; si caen en feriado/no laborable, el siguiente día hábil; sábados y domingos nunca.
   Avisa atrasadas, las de hoy y las de los próximos 7 días corridos (`DIAS_AVISO`). Si no hay nada pendiente, no envía.
   Las ejecuciones manuales (workflow_dispatch) siempre envían.
 - Historial: tabla con Fecha límite, Nombre de archivo, Campaña, Categoría, Estado actual; filtros por Categoría, Campaña y Estado;
-  "Descargar Excel" baja solo lo filtrado (con fechas de subida, publicación y bajada, sin el título) usando SheetJS desde cdnjs (plan B: CSV).
+  "Descargar Excel" baja solo lo filtrado (con fechas de subida, publicación y bajada, sin el título) con el diseño del Excel de referencia (título, encabezado rojo, filas centradas con bordes) usando ExcelJS desde cdnjs (plan B: CSV).
 - Símbolos de etapa: ✓ Subida, ▶ Publicada, ↓ Bajada (barras del calendario y píldora de estado del historial).
 
 ## Cómo probar
@@ -41,5 +41,4 @@ Las comunicaciones viejas pueden no tener `archivo`: se muestra el título en gr
 - Alerta: `FIREBASE_PROJECT_ID=... FECHA_HOY=2026-10-19 node recordatorios/enviar-recordatorio.mjs --prueba` imprime la tarjeta sin enviar.
 
 ## Pendiente / ideas
-- Cargar 2027 (rango de fechas, reglas y feriados) cuando haga falta.
 - Verificar la configuración real de Firebase si la página dice "Modo local" (la config se pisa al reemplazar `app.js`).

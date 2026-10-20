@@ -59,6 +59,19 @@ const FERIADOS = {
   "2026-12-07": "Día no laborable con fines turísticos",
   "2026-12-08": "Inmaculada Concepción de María",
   "2026-12-25": "Navidad",
+  "2027-01-01": "Año Nuevo",
+  "2027-02-08": "Carnaval",
+  "2027-02-09": "Carnaval",
+  "2027-03-24": "Día Nacional de la Memoria por la Verdad y la Justicia",
+  "2027-03-25": "Jueves Santo",
+  "2027-03-26": "Viernes Santo",
+  "2027-04-02": "Día del Veterano y de los Caídos en la Guerra de Malvinas",
+  "2027-05-25": "Día de la Revolución de Mayo",
+  "2027-06-21": "Paso a la Inmortalidad del Gral. Güemes",
+  "2027-07-09": "Día de la Independencia",
+  "2027-08-16": "Paso a la Inmortalidad del Gral. San Martín",
+  "2027-10-11": "Día del Respeto a la Diversidad Cultural",
+  "2027-12-08": "Inmaculada Concepción de María",
 };
 
 /* ---------- Configuración ---------- */

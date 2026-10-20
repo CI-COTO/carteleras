@@ -91,7 +91,8 @@ body {
 .nav-arrow:hover:not(:disabled) { background: var(--red); color: #fff; }
 .nav-arrow:disabled { opacity: .3; cursor: default; }
 
-.month-tabs { display: flex; gap: 6px; }
+.month-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
+.tab { white-space: nowrap; }
 .tab {
   border: 1.5px solid transparent;
   background: transparent;

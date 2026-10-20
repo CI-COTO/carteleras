@@ -84,8 +84,8 @@ sea el día que sea (el filtro de lunes/miércoles solo rige para el horario aut
   GitHub suele demorar el disparo unos minutos, por eso el aviso llega cerca de las 7:15.
   El workflow corre todos los días hábiles y el script decide si toca enviar (lunes, miércoles o
   el día hábil que reemplaza a un feriado), así no hay que tocar el cron para los feriados.
-- **Feriados**: la lista de `enviar-recordatorio.mjs` llega hasta diciembre 2026, igual que `app.js`.
-  Cuando extiendan el calendario a 2027, actualizá ambas (y la regla de fechas de `firestore.rules`).
+- **Feriados**: la lista de `enviar-recordatorio.mjs` llega hasta diciembre 2027, igual que `app.js`.
+  Los días no laborables con fines turísticos de 2027 se suman a ambas cuando se publiquen (y la regla de fechas de `firestore.rules` llega hasta 2027-12-31).
 - **"Fulano usó Workflows para enviar esta tarjeta"**: Teams agrega esa línea al pie. Si molesta:
   abrí el flujo en make.powerautomate.com → *Guardar como* (copia) → usá la URL de la copia.
 - **El Workflow queda a nombre de quien lo crea.** Si esa cuenta se da de baja, deja de andar.
