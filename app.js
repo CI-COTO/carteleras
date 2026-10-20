@@ -356,11 +356,12 @@ function renderTabs() {
         type: "button",
         class: "tab",
         "aria-current": y === actual.year ? "true" : "false",
-        // Al cambiar de año se va al mismo mes (o al más cercano disponible de ese año)
+        // Si es el año actual vuelve al mes de hoy; en cualquier otro año, al primer mes disponible (enero)
         onclick: () => {
           const delAnio = MESES.filter((m) => m.year === y);
-          const igual = delAnio.find((m) => m.month === actual.month);
-          mesIdx = MESES.indexOf(igual || (y < actual.year ? delAnio.at(-1) : delAnio[0]));
+          const hoyD = new Date();
+          const esteMes = y === hoyD.getFullYear() ? delAnio.find((m) => m.month === hoyD.getMonth()) : null;
+          mesIdx = MESES.indexOf(esteMes || delAnio[0]);
           render();
         },
         text: y,
@@ -542,8 +543,10 @@ function crearFila(i) {
     h("td", { class: "c-fecha", "data-label": "Fecha Hasta", text: fmtOpc(fechaHastaDe(i)) || "—" }),
     h("td", { "data-label": "Mes", text: NOMBRES_MES[Number(i.fecha.slice(5, 7)) - 1] }),
     h("td", { "data-label": "Estado" },
-      h("span", { class: `estado estado-${slugEstado(estado)}`, text: ICONOS[estado] ? `${ICONOS[estado]} ${estado}` : estado }),
-      estaAtrasada(i) ? h("span", { class: "late-pill inline", text: "PENDIENTE" }) : null,
+      // Si está atrasada, el cartel rojo reemplaza al "Pendiente" gris
+      estaAtrasada(i)
+        ? h("span", { class: "estado estado-atrasada", text: "PENDIENTE" })
+        : h("span", { class: `estado estado-${slugEstado(estado)}`, text: ICONOS[estado] ? `${ICONOS[estado]} ${estado}` : estado }),
       hayQueBajar(i) ? h("span", { class: "late-pill inline baja", text: "DAR DE BAJA" }) : null)
   );
 }
