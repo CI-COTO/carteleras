@@ -166,11 +166,23 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
 }
 
-function setStatus(mode, text) {
+// El estado que informa la conexión con la base; si el navegador no tiene internet, manda "Sin conexión".
+let estadoBase = { mode: "", text: "" };
+
+function pintarEstado() {
   const s = $("#status");
-  s.dataset.mode = mode;
-  s.textContent = text;
+  const sinRed = !navigator.onLine;
+  s.dataset.mode = sinRed ? "error" : estadoBase.mode;
+  s.textContent = sinRed ? "Sin conexión" : estadoBase.text;
 }
+
+function setStatus(mode, text) {
+  estadoBase = { mode, text };
+  pintarEstado();
+}
+
+window.addEventListener("online", pintarEstado);
+window.addEventListener("offline", pintarEstado);
 
 /* ---------- Almacenamiento: Firebase o modo local ---------- */
 
@@ -254,16 +266,16 @@ function crearStoreLocal() {
 async function crearStore() {
   const configurado = !firebaseConfig.apiKey.startsWith("TU_");
   if (!configurado) {
-    setStatus("local", "Modo local: los cambios se guardan solo en este navegador");
+    setStatus("local", "Modo local");
     return crearStoreLocal();
   }
   try {
     const store = await crearStoreFirebase();
-    setStatus("firebase", "En línea: los cambios se ven en tiempo real");
+    setStatus("firebase", "En línea");
     return store;
   } catch (err) {
     console.error("No se pudo conectar con Firebase:", err);
-    setStatus("error", "Sin conexión con Firebase: se usa el modo local");
+    setStatus("error", "Sin conexión");
     return crearStoreLocal();
   }
 }
@@ -953,7 +965,11 @@ async function guardarForm(ev) {
     render();
   } catch (err) {
     console.error(err);
-    mostrarError("No se pudo guardar. Revisá la conexión e intentá de nuevo.");
+    mostrarError(
+      err?.code === "permission-denied"
+        ? "Firebase rechazó el guardado: las reglas publicadas no coinciden con la app. Hay que publicar firestore.rules en la consola."
+        : "No se pudo guardar. Revisá la conexión e intentá de nuevo."
+    );
   } finally {
     btn.disabled = false;
   }
@@ -1006,7 +1022,7 @@ async function iniciar() {
     (lista) => { items = lista; render(); },
     (err) => {
       console.error(err);
-      setStatus("error", "Se perdió la conexión con Firebase. Recargá la página.");
+      setStatus("error", "Sin conexión");
     }
   );
 
