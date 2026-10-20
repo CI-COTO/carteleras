@@ -1,12 +1,17 @@
 /* =========================================================
-   Recordatorio diario por Teams — Calendarización Carteleras
+   Recordatorio por Teams — Calendarización Carteleras
    ---------------------------------------------------------
    Lee las comunicaciones de Firestore y manda UNA tarjeta al
-   canal/chat de Teams con:
-     · las atrasadas (fecha pasada y sin tilde de completa)
+   canal/chat de Teams con lo que todavía NO está subida:
+     · las atrasadas (fecha límite pasada)
      · las que vencen hoy
-     · las que vencen en los próximos días hábiles
+     · las que vencen en los próximos 7 días corridos
+   Las etapas Publicada y Bajada son solo seguimiento: no generan avisos.
    Si no hay nada pendiente, no manda nada (para no hacer ruido).
+
+   CUÁNDO ENVÍA: lunes y miércoles. Si ese día es feriado o no laborable,
+   se corre al siguiente día hábil. Sábados y domingos nunca.
+   (GitHub Actions lo dispara todos los días hábiles; el script decide si toca.)
 
    Lo ejecuta GitHub Actions (ver .github/workflows/recordatorios-teams.yml).
    No necesita instalar dependencias: usa Node 20+.
@@ -15,18 +20,20 @@
      FIREBASE_PROJECT_ID  (obligatoria) id del proyecto de Firebase
      TEAMS_WEBHOOK_URL    (obligatoria salvo en --prueba) URL del Workflow de Teams
      CALENDARIO_URL       (opcional) link al calendario, para el botón "Abrir calendario"
-     DIAS_AVISO           (opcional, por defecto 3) cuántos días hábiles hacia adelante avisar
+     DIAS_AVISO           (opcional, por defecto 7) cuántos días corridos hacia adelante avisar
      ENVIAR_SI_VACIO      (opcional, "true"/"false") mandar mensaje aunque esté todo al día
+     FORZAR_ENVIO         (opcional, "true") enviar aunque hoy no sea día de envío (pruebas manuales)
      FECHA_HOY            (opcional, AAAA-MM-DD) simular otro día, útil para probar
 
    Uso:
-     node recordatorios/enviar-recordatorio.mjs            → envía a Teams
+     node recordatorios/enviar-recordatorio.mjs            → envía a Teams (si hoy toca)
      node recordatorios/enviar-recordatorio.mjs --prueba   → solo muestra la tarjeta, no envía
    ========================================================= */
 
 const ZONA_HORARIA = "America/Buenos_Aires";
 const COLECCION = "comunicaciones";
 const MAX_POR_GRUPO = 15; // para no pasarnos del tamaño máximo de tarjeta de Teams
+const DIAS_DE_ENVIO = [1, 3]; // 1 = lunes, 3 = miércoles
 
 // Copias de las listas de app.js (si cambian allá, actualizarlas acá también).
 const CATEGORIAS = {
@@ -38,13 +45,14 @@ const CATEGORIAS = {
   compromiso: { label: "Somos Compromiso", emoji: "🟣" },
 };
 
+// En el calendario este campo se muestra como "Campaña".
 const CARTELERAS = {
   central:    "Central",
   sucursales: "Sucursales",
   logisu:     "Logisu (CD)",
 };
 
-// Días en que no se manda recordatorio y que no cuentan como hábiles.
+// Días que no son hábiles (para correr el envío al siguiente día hábil).
 const FERIADOS = {
   "2026-10-12": "Día del Respeto a la Diversidad Cultural",
   "2026-11-23": "Día de la Soberanía Nacional",
@@ -62,8 +70,9 @@ const cfg = {
   proyecto: (process.env.FIREBASE_PROJECT_ID || "").trim(),
   webhook: (process.env.TEAMS_WEBHOOK_URL || "").trim(),
   calendario: (process.env.CALENDARIO_URL || "").trim(),
-  diasAviso: Math.max(0, Number.parseInt(process.env.DIAS_AVISO || "3", 10) || 0),
+  diasAviso: Math.max(0, Number.parseInt(process.env.DIAS_AVISO || "7", 10) || 0),
   enviarSiVacio: process.env.ENVIAR_SI_VACIO === "true",
+  forzar: process.env.FORZAR_ENVIO === "true",
   hoy: (process.env.FECHA_HOY || "").trim() || hoyEnArgentina(),
 };
 
@@ -81,17 +90,26 @@ const utc = (iso) => {
 const isoDe = (ms) => new Date(ms).toISOString().slice(0, 10);
 const sumarDias = (iso, n) => isoDe(utc(iso) + n * 86400000);
 const diffDias = (a, b) => Math.round((utc(a) - utc(b)) / 86400000);
-const esFinDeSemana = (iso) => [0, 6].includes(new Date(utc(iso)).getUTCDay());
+const diaSemanaNum = (iso) => new Date(utc(iso)).getUTCDay();
+const esFinDeSemana = (iso) => [0, 6].includes(diaSemanaNum(iso));
 const esHabil = (iso) => !esFinDeSemana(iso) && !FERIADOS[iso];
 
-function enDiasHabiles(desde, n) {
-  let f = desde;
-  let contados = 0;
-  while (contados < n) {
-    f = sumarDias(f, 1);
-    if (esHabil(f)) contados++;
-  }
+// Primer día hábil desde `iso` (incluido): si `iso` ya es hábil, es el mismo.
+function proximoHabil(iso) {
+  let f = iso;
+  while (!esHabil(f)) f = sumarDias(f, 1);
   return f;
+}
+
+// ¿Hoy toca enviar? Sí si hoy es lunes/miércoles hábil, o si es el día hábil al que se
+// corrió un lunes/miércoles que cayó en feriado (pueden pasar hasta 4 días de corrimiento).
+function tocaEnviarHoy(hoy) {
+  if (!esHabil(hoy)) return false;
+  for (let atras = 0; atras <= 5; atras++) {
+    const programado = sumarDias(hoy, -atras);
+    if (DIAS_DE_ENVIO.includes(diaSemanaNum(programado)) && proximoHabil(programado) === hoy) return true;
+  }
+  return false;
 }
 
 const fmtCorta = (iso) => {
@@ -156,7 +174,8 @@ const esValida = (i) =>
   i && typeof i.titulo === "string" && typeof i.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(i.fecha);
 
 function clasificar(items) {
-  const limite = enDiasHabiles(cfg.hoy, cfg.diasAviso);
+  const limite = sumarDias(cfg.hoy, cfg.diasAviso); // días corridos
+  // Pendiente = sin tilde de "Subida" (campo `completa`). Publicada y Bajada no generan avisos.
   const pendientes = items.filter((i) => esValida(i) && !i.completa);
   const porFecha = (a, b) => a.fecha.localeCompare(b.fecha) || a.titulo.localeCompare(b.titulo, "es");
 
@@ -172,7 +191,7 @@ function clasificar(items) {
 
 /* ---------- Tarjeta adaptable de Teams ---------- */
 
-function textoCarteleras(i) {
+function textoCampana(i) {
   const lista = Array.isArray(i.carteleras) ? i.carteleras : [];
   return Object.keys(CARTELERAS).filter((k) => lista.includes(k)).map((k) => CARTELERAS[k]).join(" / ");
 }
@@ -187,15 +206,18 @@ function cuandoVence(i) {
 
 function filaItem(i) {
   const cat = CATEGORIAS[i.categoria] || { label: "Sin categoría", emoji: "⚪" };
-  const carteleras = textoCarteleras(i);
+  const archivo = typeof i.archivo === "string" ? i.archivo.trim() : "";
   return {
     type: "Container",
     spacing: "Small",
     items: [
       { type: "TextBlock", text: `${cat.emoji} **${i.titulo}**`, wrap: true },
+      ...(archivo
+        ? [{ type: "TextBlock", text: `📄 ${archivo}`, wrap: true, size: "Small", spacing: "None" }]
+        : []),
       {
         type: "TextBlock",
-        text: [cuandoVence(i), cat.label, carteleras].filter(Boolean).join(" · "),
+        text: [cuandoVence(i), cat.label, textoCampana(i)].filter(Boolean).join(" · "),
         wrap: true, isSubtle: true, size: "Small", spacing: "None",
       },
     ],
@@ -215,7 +237,7 @@ function seccion(titulo, estilo, lista) {
       { type: "TextBlock", text: `${titulo} (${lista.length})`, weight: "Bolder", size: "Medium" },
       ...visibles.map(filaItem),
       ...(resto > 0
-        ? [{ type: "TextBlock", text: `… y ${plural(resto, "más", "más")}. Miralas en el calendario.`, isSubtle: true, wrap: true }]
+        ? [{ type: "TextBlock", text: `… y ${resto} más. Miralas en el calendario.`, isSubtle: true, wrap: true }]
         : []),
     ],
   }];
@@ -227,11 +249,11 @@ function armarTarjeta(g) {
   const fechaCap = fechaTitulo.charAt(0).toUpperCase() + fechaTitulo.slice(1);
 
   const resumen = total === 0
-    ? "Todo al día: no hay comunicaciones pendientes para estos días. ✅"
+    ? "Todo al día: no hay comunicaciones pendientes de subir para estos días. ✅"
     : [
         g.atrasadas.length ? plural(g.atrasadas.length, "atrasada", "atrasadas") : null,
         g.hoy.length ? `${g.hoy.length} para hoy` : null,
-        g.proximas.length ? `${g.proximas.length} en los próximos ${plural(cfg.diasAviso, "día hábil", "días hábiles")}` : null,
+        g.proximas.length ? `${g.proximas.length} en los próximos ${plural(cfg.diasAviso, "día", "días")}` : null,
       ].filter(Boolean).join(" · ");
 
   const body = [
@@ -285,8 +307,8 @@ async function main() {
   if (!cfg.proyecto) throw new Error("Falta FIREBASE_PROJECT_ID.");
   if (!MODO_PRUEBA && !cfg.webhook) throw new Error("Falta TEAMS_WEBHOOK_URL (o usá --prueba).");
 
-  if (!esHabil(cfg.hoy) && !MODO_PRUEBA) {
-    console.log(`Hoy (${cfg.hoy}) no es día hábil: no se envía recordatorio.`);
+  if (!tocaEnviarHoy(cfg.hoy) && !MODO_PRUEBA && !cfg.forzar) {
+    console.log(`Hoy (${cfg.hoy}) no es día de envío (solo lunes y miércoles hábiles; si caen en feriado, el siguiente día hábil): no se envía recordatorio.`);
     return;
   }
 

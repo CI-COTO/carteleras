@@ -8,16 +8,17 @@
    ========================================================= */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDjwOMahzo3jvxkSLShUV4YR4lXpnh26Jg",
-  authDomain: "calendario-cartelera.firebaseapp.com",
-  projectId: "calendario-cartelera",
-  storageBucket: "calendario-cartelera.firebasestorage.app",
-  messagingSenderId: "360395549011",
-  appId: "1:360395549011:web:b9af6933d54f1fcea359a6"
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "TU_SENDER_ID",
+  appId: "TU_APP_ID",
 };
 
 const FIREBASE_VERSION = "10.12.2";
 const COLLECTION = "comunicaciones";
+const SHEETJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
 
 /* ---------- Datos fijos ---------- */
 
@@ -30,11 +31,22 @@ const CATEGORIAS = {
   compromiso: { label: "Somos Compromiso", bg: "#6B4A8A", fg: "#ffffff" },
 };
 
+// Se llamaba "Carteleras destino"; ahora se muestra como "Campaña".
+// Las claves internas (campo `carteleras`) no cambian, así los datos viejos siguen funcionando.
 const CARTELERAS = {
   central:    "Central",
   sucursales: "Sucursales",
   logisu:     "Logisu (CD)",
 };
+
+// Etapas de una cartelera, en orden obligatorio.
+// `completa` / `completadaEl` es la etapa "Subida" (así se llamaba antes el tilde único).
+const ETAPAS = [
+  { key: "completa",  fecha: "completadaEl", nombre: "Subida",    pendiente: "Pendiente de subir.",    bloqueo: null },
+  { key: "publicada", fecha: "publicadaEl",  nombre: "Publicada", pendiente: "Pendiente de publicar.", bloqueo: "Se habilita cuando esté subida." },
+  { key: "bajada",    fecha: "bajadaEl",     nombre: "Bajada",    pendiente: "Pendiente de bajar.",    bloqueo: "Se habilita cuando esté publicada." },
+];
+const ESTADOS = ["Pendiente", "Subida", "Publicada", "Bajada"];
 
 const MESES = [
   { year: 2026, month: 9,  name: "Octubre" },
@@ -59,10 +71,17 @@ const SEMILLA = [
   { id: "seed-convenios-edu", titulo: "Convenios Educativos", fecha: "2026-10-07", categoria: "compromiso", carteleras: ["sucursales"] },
   { id: "seed-dia-madre",     titulo: "Día de la Madre",      fecha: "2026-10-16", categoria: "familia",    carteleras: ["central", "sucursales"] },
   { id: "seed-carnicero",     titulo: "Día del Carnicero",    fecha: "2026-10-19", categoria: "mas",        carteleras: ["sucursales"] },
-].map((s) => ({ descripcion: "", completa: false, completadaEl: null, ...s }));
+].map((s) => ({
+  descripcion: "", archivo: "",
+  completa: false, completadaEl: null,
+  publicada: false, publicadaEl: null,
+  bajada: false, bajadaEl: null,
+  ...s,
+}));
 
 /* ---------- Utilidades de fecha ---------- */
 
+const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 const pad = (n) => String(n).padStart(2, "0");
 const toISO = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 const hoyISO = () => {
@@ -78,6 +97,7 @@ const fmtCorta = (iso) => {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
 };
+const fmtOpc = (iso) => (typeof iso === "string" && ISO_RE.test(iso) ? fmtCorta(iso) : "");
 const fmtLarga = (iso) =>
   new Date(utc(iso)).toLocaleDateString("es-AR", {
     weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
@@ -222,18 +242,58 @@ let store;
 let items = [];
 let mesIdx = 0;
 let hoy = hoyISO();
+let vista = "calendario"; // "calendario" | "historial"
 let detalleId = null;
 let formModo = "nuevo"; // "nuevo" | "editar"
 let formId = null;
+const filtros = { categoria: "", campana: "", estado: "" };
 
 const itemValido = (i) =>
-  i && typeof i.titulo === "string" && typeof i.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(i.fecha);
+  i && typeof i.titulo === "string" && typeof i.fecha === "string" && ISO_RE.test(i.fecha);
 
 const catDe = (i) => CATEGORIAS[i.categoria] ?? { label: "Sin categoría", bg: "#9aa0a6", fg: "#ffffff" };
 const cartelerasDe = (i) =>
   Object.keys(CARTELERAS).filter((k) => Array.isArray(i.carteleras) && i.carteleras.includes(k));
 const textoCarteleras = (i) => cartelerasDe(i).map((k) => CARTELERAS[k]).join(" / ");
+
+// Estado actual = la etapa más avanzada que está tildada.
+const estadoDe = (i) => (i.bajada ? "Bajada" : i.publicada ? "Publicada" : i.completa ? "Subida" : "Pendiente");
+// Solo "Subida" cuenta para el cartel de atrasada (la fecha del calendario es el límite para subirla).
 const estaAtrasada = (i) => !i.completa && i.fecha < hoy;
+const nombreArchivo = (i) => (typeof i.archivo === "string" ? i.archivo.trim() : "");
+
+/* ---------- Vistas ---------- */
+
+function cambiarVista(v) {
+  vista = v;
+  render();
+}
+
+function actualizarVista() {
+  const esCal = vista === "calendario";
+  $("#viewCalendario").hidden = !esCal;
+  $("#viewHistorial").hidden = esCal;
+  $("#monthNav").hidden = !esCal;
+  $("#monthTitle").hidden = !esCal;
+  $("#subtitle").textContent = esCal ? "CALENDARIZACIÓN CARTELERAS DIGITALES" : "HISTORIAL DE CARTELERAS";
+  $("#btnVistaCal").setAttribute("aria-current", String(esCal));
+  $("#btnVistaHist").setAttribute("aria-current", String(!esCal));
+}
+
+function render() {
+  hoy = hoyISO();
+  actualizarVista();
+  if (vista === "calendario") renderCalendario();
+  else renderHistorial();
+
+  // Si hay un detalle abierto, lo refrescamos (o lo cerramos si ya no existe)
+  const dlg = $("#detailDialog");
+  if (dlg.open && detalleId) {
+    const it = items.find((i) => i.id === detalleId);
+    if (it) renderDetalle(it);
+    else dlg.close();
+  }
+}
 
 /* ---------- Render del calendario ---------- */
 
@@ -269,7 +329,7 @@ function crearBarra(item) {
       onclick: () => abrirDetalle(item.id),
     },
     h("span", { class: "bar-title" },
-      item.completa ? h("span", { class: "check", "aria-label": "Completa" }, "✓") : null,
+      item.completa ? h("span", { class: "check", "aria-label": "Subida" }, "✓") : null,
       item.titulo),
     meta ? h("span", { class: "bar-meta", text: meta }) : null,
     atrasada ? h("span", { class: "late-pill", text: "ATRASADA" }) : null
@@ -286,8 +346,7 @@ function crearBarraFeriado(f) {
   );
 }
 
-function render() {
-  hoy = hoyISO();
+function renderCalendario() {
   const { year, month, name } = MESES[mesIdx];
 
   $("#monthName").textContent = name;
@@ -343,13 +402,164 @@ function render() {
     );
   }
   $("#grid").replaceChildren(...celdas);
+}
 
-  // Si hay un detalle abierto, lo refrescamos (o lo cerramos si ya no existe)
-  const dlg = $("#detailDialog");
-  if (dlg.open && detalleId) {
-    const it = items.find((i) => i.id === detalleId);
-    if (it) renderDetalle(it);
-    else dlg.close();
+/* ---------- Historial ---------- */
+
+function armarFiltros() {
+  const llenar = (sel, todas, opciones) =>
+    $(sel).replaceChildren(
+      h("option", { value: "", text: todas }),
+      ...opciones.map(([v, t]) => h("option", { value: v, text: t }))
+    );
+  llenar("#fltCategoria", "Todas", Object.entries(CATEGORIAS).map(([k, c]) => [k, c.label]));
+  llenar("#fltCampana", "Todas", Object.entries(CARTELERAS));
+  llenar("#fltEstado", "Todos", ESTADOS.map((e) => [e, e]));
+
+  const enlazar = (sel, clave) =>
+    $(sel).addEventListener("change", (e) => { filtros[clave] = e.target.value; renderHistorial(); });
+  enlazar("#fltCategoria", "categoria");
+  enlazar("#fltCampana", "campana");
+  enlazar("#fltEstado", "estado");
+
+  $("#fltLimpiar").addEventListener("click", () => {
+    filtros.categoria = filtros.campana = filtros.estado = "";
+    ["#fltCategoria", "#fltCampana", "#fltEstado"].forEach((s) => ($(s).value = ""));
+    renderHistorial();
+  });
+  $("#btnExcel").addEventListener("click", descargarExcel);
+}
+
+// Las filas que se ven (y que baja el Excel): todas las comunicaciones, filtradas y de la más reciente a la más vieja.
+function itemsFiltrados() {
+  return items
+    .filter(itemValido)
+    .filter((i) => !filtros.categoria || i.categoria === filtros.categoria)
+    .filter((i) => !filtros.campana || cartelerasDe(i).includes(filtros.campana))
+    .filter((i) => !filtros.estado || estadoDe(i) === filtros.estado)
+    .sort((a, b) =>
+      b.fecha.localeCompare(a.fecha) ||
+      (nombreArchivo(a) || a.titulo).localeCompare(nombreArchivo(b) || b.titulo, "es")
+    );
+}
+
+const slugEstado = (e) => e.toLowerCase();
+
+function crearFila(i) {
+  const cat = catDe(i);
+  const estado = estadoDe(i);
+  const nombre = nombreArchivo(i);
+  const abrir = () => abrirDetalle(i.id);
+
+  return h("tr", {
+      class: "hist-row",
+      tabindex: "0",
+      onclick: abrir,
+      onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); } },
+    },
+    h("td", { class: "c-fecha", "data-label": "Fecha límite", text: fmtCorta(i.fecha) }),
+    h("td", { class: "c-archivo", "data-label": "Nombre de archivo" },
+      nombre
+        ? nombre
+        : h("span", { class: "sin-archivo", title: "Sin nombre de archivo: se muestra el título", text: i.titulo })),
+    h("td", { "data-label": "Campaña", text: textoCarteleras(i) || "—" }),
+    h("td", { "data-label": "Categoría" },
+      h("span", { class: "cat-pill" },
+        h("i", { style: `background:${cat.bg}` }),
+        cat.label)),
+    h("td", { "data-label": "Estado actual" },
+      h("span", { class: `estado estado-${slugEstado(estado)}`, text: estado }),
+      estaAtrasada(i) ? h("span", { class: "late-pill inline", text: "ATRASADA" }) : null)
+  );
+}
+
+function renderHistorial() {
+  const total = items.filter(itemValido).length;
+  const lista = itemsFiltrados();
+
+  $("#histCount").textContent =
+    lista.length === total
+      ? plural(total, "comunicación", "comunicaciones")
+      : `${lista.length} de ${plural(total, "comunicación", "comunicaciones")}`;
+
+  $("#histBody").replaceChildren(
+    ...(lista.length
+      ? lista.map(crearFila)
+      : [h("tr", {}, h("td", { colspan: "5", class: "hist-empty", text: "No hay comunicaciones con estos filtros." }))])
+  );
+}
+
+/* ---------- Descarga a Excel ---------- */
+
+const COLUMNAS_EXCEL = [
+  "Fecha límite", "Nombre de archivo", "Campaña", "Categoría", "Estado actual",
+  "Fecha de subida", "Fecha de publicación", "Fecha de bajada",
+];
+
+function filasExcel(lista) {
+  return lista.map((i) => ({
+    "Fecha límite": fmtCorta(i.fecha),
+    // Las comunicaciones viejas sin nombre de archivo salen con su título, igual que en pantalla.
+    "Nombre de archivo": nombreArchivo(i) || i.titulo,
+    "Campaña": textoCarteleras(i),
+    "Categoría": catDe(i).label,
+    "Estado actual": estadoDe(i),
+    "Fecha de subida": fmtOpc(i.completadaEl),
+    "Fecha de publicación": fmtOpc(i.publicadaEl),
+    "Fecha de bajada": fmtOpc(i.bajadaEl),
+  }));
+}
+
+function cargarSheetJS() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = SHEETJS_URL;
+    s.async = true;
+    s.onload = () => (window.XLSX ? resolve(window.XLSX) : reject(new Error("SheetJS no se inicializó")));
+    s.onerror = () => reject(new Error("No se pudo cargar SheetJS"));
+    document.head.append(s);
+  });
+}
+
+function descargarBlob(blob, nombre) {
+  const url = URL.createObjectURL(blob);
+  const a = h("a", { href: url, download: nombre });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// Plan B si no se puede cargar la librería de Excel: CSV con ";" y BOM, que Excel en español abre bien.
+function descargarCSV(filas, nombre) {
+  const celda = (v) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+  const lineas = [COLUMNAS_EXCEL.map(celda).join(";"), ...filas.map((f) => COLUMNAS_EXCEL.map((c) => celda(f[c])).join(";"))];
+  descargarBlob(new Blob(["﻿" + lineas.join("\r\n")], { type: "text/csv;charset=utf-8" }), `${nombre}.csv`);
+}
+
+async function descargarExcel() {
+  const lista = itemsFiltrados();
+  if (!lista.length) return toast("No hay filas para descargar con estos filtros.");
+
+  const filas = filasExcel(lista);
+  const nombre = `historial-carteleras-${hoyISO()}`;
+  const btn = $("#btnExcel");
+  btn.disabled = true;
+  try {
+    const XLSX = await cargarSheetJS();
+    const ws = XLSX.utils.json_to_sheet(filas, { header: COLUMNAS_EXCEL });
+    ws["!cols"] = [{ wch: 13 }, { wch: 38 }, { wch: 26 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Historial");
+    XLSX.writeFile(wb, `${nombre}.xlsx`);
+    toast(`Excel descargado (${plural(filas.length, "fila", "filas")})`);
+  } catch (err) {
+    console.error(err);
+    descargarCSV(filas, nombre);
+    toast("No se pudo armar el .xlsx: se descargó un CSV, que también abre en Excel.");
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -364,47 +574,104 @@ function abrirDetalle(id) {
   if (!dlg.open) dlg.showModal();
 }
 
-function renderDetalle(it) {
-  const cat = catDe(it);
-  const atrasada = estaAtrasada(it);
-  const meta = textoCarteleras(it);
+async function copiarTexto(texto, boton) {
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(texto);
+    ok = true;
+  } catch (_) {
+    // Plan B para navegadores o contextos sin acceso al portapapeles
+    const t = h("textarea", { readonly: true, style: "position:fixed;opacity:0;top:0;left:0" });
+    t.value = texto;
+    document.body.append(t);
+    t.select();
+    try { ok = document.execCommand("copy"); } catch (_) { ok = false; }
+    t.remove();
+  }
+  if (ok) {
+    toast("Nombre de archivo copiado");
+    if (boton) {
+      boton.textContent = "¡Copiado!";
+      setTimeout(() => { boton.textContent = "Copiar"; }, 1600);
+    }
+  } else {
+    toast("No se pudo copiar. Seleccioná el texto y copialo a mano.");
+  }
+}
 
-  // Estado de cumplimiento
-  let notaClase = "";
-  let nota = "Pendiente de completar.";
-  if (it.completa) {
-    const f = it.completadaEl;
-    if (f && /^\d{4}-\d{2}-\d{2}$/.test(f)) {
+// Texto y color de la nota de cada etapa
+function notaEtapa(it, idx) {
+  const e = ETAPAS[idx];
+  const marcada = !!it[e.key];
+  const f = it[e.fecha];
+  const fechaOk = typeof f === "string" && ISO_RE.test(f);
+
+  if (marcada) {
+    if (!fechaOk) return { clase: "ok", texto: `${e.nombre}.` };
+    if (idx === 0) {
       const d = diffDias(f, it.fecha);
       const cuando = d === 0 ? "justo a tiempo" : d < 0 ? `${plural(-d, "día", "días")} antes` : `${plural(d, "día", "días")} de atraso`;
-      nota = `Completada el ${fmtCorta(f)} · ${cuando}`;
-      notaClase = d > 0 ? "late" : "ok";
-    } else {
-      nota = "Completada.";
-      notaClase = "ok";
+      return { clase: d > 0 ? "late" : "ok", texto: `Subida el ${fmtCorta(f)} · ${cuando}` };
     }
-  } else if (atrasada) {
-    const d = diffDias(hoy, it.fecha);
-    nota = `Atrasada: la fecha era hace ${plural(d, "día", "días")}.`;
-    notaClase = "late";
+    return { clase: "ok", texto: `${e.nombre} el ${fmtCorta(f)}` };
   }
+  if (idx === 0 && estaAtrasada(it)) {
+    const d = diffDias(hoy, it.fecha);
+    return { clase: "late", texto: `Atrasada: la fecha límite era hace ${plural(d, "día", "días")}.` };
+  }
+  const previaOk = idx === 0 || !!it[ETAPAS[idx - 1].key];
+  return { clase: "", texto: previaOk ? e.pendiente : e.bloqueo };
+}
+
+function crearEtapa(it, idx) {
+  const e = ETAPAS[idx];
+  const marcada = !!it[e.key];
+  const previaOk = idx === 0 || !!it[ETAPAS[idx - 1].key];
+  const nota = notaEtapa(it, idx);
+  const id = `dEtapa${idx}`;
 
   const chk = h("input", {
     type: "checkbox",
-    id: "dDone",
-    onchange: async (e) => {
-      const marcada = e.target.checked;
+    id,
+    disabled: !marcada && !previaOk,
+    onchange: async (ev) => {
+      const marca = ev.target.checked;
+      const cambios = {};
+      if (marca) {
+        cambios[e.key] = true;
+        cambios[e.fecha] = hoyISO();
+      } else {
+        // Al destildar una etapa se destildan también las siguientes (y se borran sus fechas)
+        for (const s of ETAPAS.slice(idx)) {
+          cambios[s.key] = false;
+          cambios[s.fecha] = null;
+        }
+      }
       try {
-        await store.update(it.id, { completa: marcada, completadaEl: marcada ? hoyISO() : null });
-        toast(marcada ? "Marcada como completa" : "Marca de completa quitada");
+        await store.update(it.id, cambios);
+        toast(marca ? `Marcada como ${e.nombre.toLowerCase()}` : `Marca de ${e.nombre.toLowerCase()} quitada`);
       } catch (err) {
         console.error(err);
-        e.target.checked = !marcada;
+        ev.target.checked = !marca;
         toast("No se pudo guardar el cambio. Probá de nuevo.");
       }
     },
   });
-  chk.checked = !!it.completa;
+  chk.checked = marcada;
+
+  return h("div", { class: "done-box " + nota.clase + (!marcada && !previaOk ? " is-locked" : "") },
+    chk,
+    h("div", {},
+      h("label", { for: id, text: e.nombre }),
+      h("span", { class: "done-note", text: nota.texto })
+    )
+  );
+}
+
+function renderDetalle(it) {
+  const cat = catDe(it);
+  const meta = textoCarteleras(it);
+  const nombre = nombreArchivo(it);
 
   const accionesNormales = h("div", { class: "actions", id: "dActions" },
     h("button", { type: "button", class: "btn danger", onclick: () => pedirConfirmacion(it) , text: "Eliminar" }),
@@ -415,10 +682,23 @@ function renderDetalle(it) {
   $("#detailSheet").replaceChildren(
     h("span", { class: "d-cat", style: `background:${cat.bg};color:${cat.fg}`, text: cat.label }),
     h("h3", { class: "d-title", id: "detailTitle", text: it.titulo }),
-    h("p", { class: "d-date", text: `Debe estar terminada: ${fmtLarga(it.fecha)}` }),
+    h("p", { class: "d-date", text: `Fecha límite para subirla: ${fmtLarga(it.fecha)}` }),
     h("div", { class: "d-row" },
-      h("b", { text: "Carteleras destino" }),
-      meta || h("span", { class: "d-empty", text: "Sin cartelera asignada" })
+      h("b", { text: "Nombre de archivo" }),
+      nombre
+        ? h("div", { class: "d-file" },
+            h("code", { text: nombre }),
+            h("button", {
+              type: "button",
+              class: "btn ghost copy-btn",
+              onclick: (ev) => copiarTexto(nombre, ev.currentTarget),
+              text: "Copiar",
+            }))
+        : h("span", { class: "d-empty", text: "Sin nombre de archivo (tocá Editar para cargarlo)" })
+    ),
+    h("div", { class: "d-row" },
+      h("b", { text: "Campaña" }),
+      meta || h("span", { class: "d-empty", text: "Sin campaña asignada" })
     ),
     h("div", { class: "d-row" },
       h("b", { text: "Descripción" }),
@@ -426,12 +706,9 @@ function renderDetalle(it) {
         ? h("div", { class: "d-desc", text: it.descripcion })
         : h("span", { class: "d-empty", text: "Sin descripción" })
     ),
-    h("div", { class: "done-box " + notaClase },
-      chk,
-      h("div", {},
-        h("label", { for: "dDone", text: "Completa / subida" }),
-        h("span", { class: "done-note", text: nota })
-      )
+    h("div", { class: "stages" },
+      h("b", { class: "stages-title", text: "Seguimiento" }),
+      ETAPAS.map((_, idx) => crearEtapa(it, idx))
     ),
     accionesNormales
   );
@@ -491,6 +768,7 @@ function abrirForm(modo, { fecha, item } = {}) {
   $("#formError").hidden = true;
 
   $("#fTitulo").value = item?.titulo ?? "";
+  $("#fArchivo").value = item ? nombreArchivo(item) : "";
   $("#fFecha").value = item?.fecha ?? fecha ?? "";
   $("#fDescripcion").value = item?.descripcion ?? "";
   document.querySelectorAll('input[name="categoria"]').forEach((r) => (r.checked = r.value === item?.categoria));
@@ -511,32 +789,40 @@ async function guardarForm(ev) {
   ev.preventDefault();
 
   const titulo = $("#fTitulo").value.trim();
+  const archivo = $("#fArchivo").value.trim();
   const fecha = $("#fFecha").value;
   const descripcion = $("#fDescripcion").value.trim();
   const categoria = document.querySelector('input[name="categoria"]:checked')?.value;
   const carteleras = [...document.querySelectorAll('input[name="cartelera"]:checked')].map((c) => c.value);
 
   if (!titulo) return mostrarError("Escribí un título para la comunicación.");
-  if (!fecha) return mostrarError("Elegí la fecha en que debe estar terminada.");
+  if (!archivo) return mostrarError("Escribí el nombre de archivo (sin extensión).");
+  if (!fecha) return mostrarError("Elegí la fecha límite para subirla.");
   if (fecha < "2026-10-01" || fecha > "2026-12-31") return mostrarError("La fecha tiene que estar entre octubre y diciembre de 2026.");
   if (!categoria) return mostrarError("Elegí una categoría.");
-  if (!carteleras.length) return mostrarError("Tildá al menos una cartelera destino.");
+  if (!carteleras.length) return mostrarError("Tildá al menos una campaña.");
 
   const btn = $("#formSave");
   btn.disabled = true;
   try {
     if (formModo === "editar") {
-      await store.update(formId, { titulo, fecha, descripcion, categoria, carteleras });
+      await store.update(formId, { titulo, archivo, fecha, descripcion, categoria, carteleras });
       toast("Cambios guardados");
     } else {
-      await store.add({ titulo, fecha, descripcion, categoria, carteleras, completa: false, completadaEl: null });
+      await store.add({
+        titulo, archivo, fecha, descripcion, categoria, carteleras,
+        completa: false, completadaEl: null,
+        publicada: false, publicadaEl: null,
+        bajada: false, bajadaEl: null,
+      });
       toast("Comunicación agregada");
     }
     $("#formDialog").close();
 
     // Si la fecha cae en otro mes, nos movemos hasta allí para que se vea
     const idx = MESES.findIndex((m) => fecha.startsWith(`${m.year}-${pad(m.month + 1)}`));
-    if (idx >= 0) { mesIdx = idx; render(); }
+    if (idx >= 0) { mesIdx = idx; }
+    render();
   } catch (err) {
     console.error(err);
     mostrarError("No se pudo guardar. Revisá la conexión e intentá de nuevo.");
@@ -562,6 +848,7 @@ function cerrarAlClickearFondo(dlg) {
 async function iniciar() {
   armarLeyenda();
   armarCamposFijos();
+  armarFiltros();
 
   // Mes inicial: el actual si está en el rango, si no octubre
   const t = new Date();
@@ -570,6 +857,8 @@ async function iniciar() {
 
   $("#prevMonth").addEventListener("click", () => { if (mesIdx > 0) { mesIdx--; render(); } });
   $("#nextMonth").addEventListener("click", () => { if (mesIdx < MESES.length - 1) { mesIdx++; render(); } });
+  $("#btnVistaCal").addEventListener("click", () => cambiarVista("calendario"));
+  $("#btnVistaHist").addEventListener("click", () => cambiarVista("historial"));
   $("#commForm").addEventListener("submit", guardarForm);
   $("#formCancel").addEventListener("click", () => $("#formDialog").close());
   cerrarAlClickearFondo($("#detailDialog"));

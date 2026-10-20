@@ -14,28 +14,75 @@
 
     <header class="top">
       <p class="status" id="status" role="status"></p>
-      <h1 class="month-title">
+      <h1 class="month-title" id="monthTitle">
         <span class="month-name" id="monthName"></span>
         <span class="year" id="yearNum"></span>
       </h1>
-      <h2 class="subtitle">CALENDARIZACIÓN CARTELERAS DIGITALES</h2>
+      <h2 class="subtitle" id="subtitle">CALENDARIZACIÓN CARTELERAS DIGITALES</h2>
 
-      <nav class="month-nav" aria-label="Cambiar de mes">
+      <div class="view-switch" role="tablist" aria-label="Vista">
+        <button type="button" class="view-btn" id="btnVistaCal" role="tab" aria-current="true">Calendario</button>
+        <button type="button" class="view-btn" id="btnVistaHist" role="tab" aria-current="false">Historial</button>
+      </div>
+
+      <nav class="month-nav" id="monthNav" aria-label="Cambiar de mes">
         <button type="button" class="nav-arrow" id="prevMonth" aria-label="Mes anterior">‹</button>
         <div class="month-tabs" id="monthTabs"></div>
         <button type="button" class="nav-arrow" id="nextMonth" aria-label="Mes siguiente">›</button>
       </nav>
     </header>
 
-    <section class="calendar" aria-label="Calendario del mes">
-      <div class="weekdays" aria-hidden="true">
-        <div>Domingo</div><div>Lunes</div><div>Martes</div><div>Miércoles</div>
-        <div>Jueves</div><div>Viernes</div><div>Sábado</div>
-      </div>
-      <div class="grid" id="grid"></div>
-    </section>
+    <!-- Vista: calendario -->
+    <div id="viewCalendario">
+      <section class="calendar" aria-label="Calendario del mes">
+        <div class="weekdays" aria-hidden="true">
+          <div>Domingo</div><div>Lunes</div><div>Martes</div><div>Miércoles</div>
+          <div>Jueves</div><div>Viernes</div><div>Sábado</div>
+        </div>
+        <div class="grid" id="grid"></div>
+      </section>
 
-    <footer class="legend" id="legend" aria-label="Categorías"></footer>
+      <footer class="legend" id="legend" aria-label="Categorías"></footer>
+    </div>
+
+    <!-- Vista: historial -->
+    <section id="viewHistorial" aria-label="Historial de carteleras" hidden>
+      <div class="hist-filters">
+        <label class="hist-filter">
+          <span>Categoría</span>
+          <select id="fltCategoria"></select>
+        </label>
+        <label class="hist-filter">
+          <span>Campaña</span>
+          <select id="fltCampana"></select>
+        </label>
+        <label class="hist-filter">
+          <span>Estado</span>
+          <select id="fltEstado"></select>
+        </label>
+        <div class="hist-buttons">
+          <button type="button" class="btn ghost" id="fltLimpiar">Limpiar filtros</button>
+          <button type="button" class="btn primary" id="btnExcel">Descargar Excel</button>
+        </div>
+      </div>
+
+      <p class="hist-count" id="histCount" role="status"></p>
+
+      <div class="hist-wrap">
+        <table class="hist-table">
+          <thead>
+            <tr>
+              <th scope="col">Fecha límite</th>
+              <th scope="col">Nombre de archivo</th>
+              <th scope="col">Campaña</th>
+              <th scope="col">Categoría</th>
+              <th scope="col">Estado actual</th>
+            </tr>
+          </thead>
+          <tbody id="histBody"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <!-- Detalle de una comunicación -->
@@ -54,7 +101,12 @@
       </label>
 
       <label class="field">
-        <span class="field-label">Fecha en que debe estar terminada</span>
+        <span class="field-label">Nombre de archivo <small>(sin extensión)</small></span>
+        <input type="text" id="fArchivo" maxlength="150" required autocomplete="off" spellcheck="false" placeholder="Ej.: 09-09-BI-Relevador-de-Precios">
+      </label>
+
+      <label class="field">
+        <span class="field-label">Fecha límite <small>(debe estar subida)</small></span>
         <input type="date" id="fFecha" required min="2026-10-01" max="2026-12-31">
       </label>
 
@@ -64,7 +116,7 @@
       </fieldset>
 
       <fieldset class="field">
-        <legend class="field-label">Carteleras destino</legend>
+        <legend class="field-label">Campaña</legend>
         <div class="checks" id="fCarteleras"></div>
       </fieldset>
 
