@@ -528,19 +528,23 @@ function crearFila(i) {
       onclick: abrir,
       onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); } },
     },
-    h("td", { class: "c-fecha", "data-label": "Fecha límite", text: fmtCorta(i.fecha) }),
-    h("td", { class: "c-archivo", "data-label": "Nombre de archivo" },
-      nombre
-        ? nombre
-        : h("span", { class: "sin-archivo", title: "Sin nombre de archivo: se muestra el título", text: i.titulo })),
-    h("td", { "data-label": "Campaña", text: textoCarteleras(i) || "—" }),
     h("td", { "data-label": "Categoría" },
       h("span", { class: "cat-pill" },
         h("i", { style: `background:${cat.bg}` }),
         cat.label)),
-    h("td", { "data-label": "Estado actual" },
+    h("td", { "data-label": "Campaña", text: textoCarteleras(i) || "—" }),
+    h("td", { class: "c-archivo", "data-label": "Nombre de archivo" },
+      nombre
+        ? nombre
+        : h("span", { class: "sin-archivo", title: "Sin nombre de archivo: se muestra el título", text: i.titulo })),
+    h("td", { "data-label": "Vigencia", text: textoVigencia(i) || "—" }),
+    h("td", { class: "c-fecha", "data-label": "Fecha Desde", text: fmtCorta(i.fecha) }),
+    h("td", { class: "c-fecha", "data-label": "Fecha Hasta", text: fmtOpc(fechaHastaDe(i)) || "—" }),
+    h("td", { "data-label": "Mes", text: NOMBRES_MES[Number(i.fecha.slice(5, 7)) - 1] }),
+    h("td", { "data-label": "Estado" },
       h("span", { class: `estado estado-${slugEstado(estado)}`, text: ICONOS[estado] ? `${ICONOS[estado]} ${estado}` : estado }),
-      estaAtrasada(i) ? h("span", { class: "late-pill inline", text: "PENDIENTE" }) : null)
+      estaAtrasada(i) ? h("span", { class: "late-pill inline", text: "PENDIENTE" }) : null,
+      hayQueBajar(i) ? h("span", { class: "late-pill inline baja", text: "DAR DE BAJA" }) : null)
   );
 }
 
@@ -556,7 +560,7 @@ function renderHistorial() {
   $("#histBody").replaceChildren(
     ...(lista.length
       ? lista.map(crearFila)
-      : [h("tr", {}, h("td", { colspan: "5", class: "hist-empty", text: "No hay comunicaciones con estos filtros." }))])
+      : [h("tr", {}, h("td", { colspan: "8", class: "hist-empty", text: "No hay comunicaciones con estos filtros." }))])
   );
 }
 

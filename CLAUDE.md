@@ -33,7 +33,7 @@ Las comunicaciones viejas pueden no tener `archivo`: se muestra el título en gr
 - Alerta de Teams: lunes y miércoles; si caen en feriado/no laborable, el siguiente día hábil; sábados y domingos nunca.
   Avisa atrasadas, las de hoy y las de los próximos 7 días corridos (`DIAS_AVISO`). Si no hay nada pendiente, no envía.
   Las ejecuciones manuales (workflow_dispatch) siempre envían.
-- Historial: tabla con Fecha límite, Nombre de archivo, Campaña, Categoría, Estado actual; filtros por Categoría, Campaña y Estado;
+- Historial: tabla con Categoría, Campaña, Nombre de archivo, Vigencia, Fecha Desde (= `fecha`), Fecha Hasta, Mes, Estado; filtros por Categoría, Campaña y Estado;
   "Descargar Excel" baja solo lo filtrado con el diseño del Excel de referencia (título, encabezado rojo, filas centradas con bordes) usando ExcelJS desde cdnjs (plan B: CSV).
 - "DAR DE BAJA": cartel en la barra del calendario cuando está Publicada, no Bajada y pasó `fechaHasta`. Es solo visual: no entra en los avisos de Teams.
 - Excel (orden fijo): Categorías, Campaña, Publicación (archivo), Vigencia, Fecha Desde (= `fecha`), Fecha Hasta, Mes, Estado, Fecha carga (= `completadaEl`). Con autofiltro y ancho de columna según el texto.
