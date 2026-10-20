@@ -27,7 +27,7 @@ Destildar una etapa destilda las siguientes y borra sus fechas. Estado actual = 
 Las comunicaciones viejas pueden no tener `archivo`: se muestra el título en gris.
 
 ## Reglas de negocio
-- Solo **Subida** genera el cartel ATRASADA y los avisos de Teams. Publicada y Bajada son solo seguimiento.
+- Solo **Subida** genera el cartel PENDIENTE (internamente `estaAtrasada`) y los avisos de Teams. Publicada y Bajada son solo seguimiento.
 - Rango de fechas: octubre de 2026 a diciembre de 2027 (en `app.js`, `index.html`, `firestore.rules` y la lista de feriados del script). Los no laborables turísticos de 2027 se suman cuando se publiquen.
 - Feriados fijos en `app.js` (`FERIADOS`) y copia en `enviar-recordatorio.mjs`: si cambian, actualizar los dos.
 - Alerta de Teams: lunes y miércoles; si caen en feriado/no laborable, el siguiente día hábil; sábados y domingos nunca.

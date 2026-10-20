@@ -393,7 +393,7 @@ function crearBarra(item) {
       ICONOS[estadoDe(item)] ? h("span", { class: "check", "aria-label": estadoDe(item) }, ICONOS[estadoDe(item)]) : null,
       item.titulo),
     meta ? h("span", { class: "bar-meta", text: meta }) : null,
-    atrasada ? h("span", { class: "late-pill", text: "ATRASADA" }) : null,
+    atrasada ? h("span", { class: "late-pill", text: "PENDIENTE" }) : null,
     baja ? h("span", { class: "late-pill baja", text: "DAR DE BAJA" }) : null
   );
   return btn;
@@ -531,7 +531,7 @@ function crearFila(i) {
         cat.label)),
     h("td", { "data-label": "Estado actual" },
       h("span", { class: `estado estado-${slugEstado(estado)}`, text: ICONOS[estado] ? `${ICONOS[estado]} ${estado}` : estado }),
-      estaAtrasada(i) ? h("span", { class: "late-pill inline", text: "ATRASADA" }) : null)
+      estaAtrasada(i) ? h("span", { class: "late-pill inline", text: "PENDIENTE" }) : null)
   );
 }
 
@@ -723,7 +723,7 @@ function notaEtapa(it, idx) {
   }
   if (idx === 0 && estaAtrasada(it)) {
     const d = diffDias(hoy, it.fecha);
-    return { clase: "late", texto: `Atrasada: la fecha límite era hace ${plural(d, "día", "días")}.` };
+    return { clase: "late", texto: `Pendiente: la fecha límite era hace ${plural(d, "día", "días")}.` };
   }
   if (idx === 2 && hayQueBajar(it)) {
     const d = diffDias(hoy, fechaHastaDe(it));
