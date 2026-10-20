@@ -317,15 +317,36 @@ function render() {
 /* ---------- Render del calendario ---------- */
 
 function renderTabs() {
-  const tabs = $("#monthTabs");
-  tabs.replaceChildren(
-    ...MESES.map((m, idx) =>
+  const anios = [...new Set(MESES.map((m) => m.year))];
+  const actual = MESES[mesIdx];
+  $("#yearTabs").replaceChildren(
+    ...anios.map((y) =>
       h("button", {
         type: "button",
         class: "tab",
+        "aria-current": y === actual.year ? "true" : "false",
+        // Al cambiar de año se va al mismo mes (o al más cercano disponible de ese año)
+        onclick: () => {
+          const delAnio = MESES.filter((m) => m.year === y);
+          const igual = delAnio.find((m) => m.month === actual.month);
+          mesIdx = MESES.indexOf(igual || (y < actual.year ? delAnio.at(-1) : delAnio[0]));
+          render();
+        },
+        text: y,
+      })
+    )
+  );
+  $("#stepName").textContent = actual.name;
+  // Un punto por mes del año elegido
+  $("#monthDots").replaceChildren(
+    ...MESES.map((m, idx) => (m.year === actual.year ? { m, idx } : null)).filter(Boolean).map(({ m, idx }) =>
+      h("button", {
+        type: "button",
+        class: "dot",
         "aria-current": idx === mesIdx ? "true" : "false",
+        "aria-label": `${m.name} ${m.year}`,
+        title: m.name,
         onclick: () => { mesIdx = idx; render(); },
-        text: `${m.name} ${m.year}`,
       })
     )
   );
@@ -911,6 +932,7 @@ async function iniciar() {
   const idx = MESES.findIndex((m) => m.year === t.getFullYear() && m.month === t.getMonth());
   mesIdx = idx >= 0 ? idx : 0;
 
+  $("#btnHoy").addEventListener("click", () => { mesIdx = idx >= 0 ? idx : 0; render(); });
   $("#prevMonth").addEventListener("click", () => { if (mesIdx > 0) { mesIdx--; render(); } });
   $("#nextMonth").addEventListener("click", () => { if (mesIdx < MESES.length - 1) { mesIdx++; render(); } });
   $("#btnVistaCal").addEventListener("click", () => cambiarVista("calendario"));

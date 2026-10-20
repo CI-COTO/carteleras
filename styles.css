@@ -73,11 +73,26 @@ body {
 
 .month-nav {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-top: 16px;
 }
+.year-bar { display: flex; align-items: center; gap: 8px; }
+.year-tabs { display: flex; gap: 6px; }
+.tab.hoy-btn { border-color: var(--red); color: var(--red); margin-left: 10px; }
+.tab.hoy-btn:hover { background: var(--red); color: #fff; }
+.month-step { display: flex; align-items: center; gap: 14px; }
+.step-name { min-width: 130px; text-align: center; font-weight: 700; font-size: 20px; color: var(--ink); }
+.month-dots { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.dot {
+  width: 12px; height: 12px; padding: 0;
+  border: 0; border-radius: 50%;
+  background: #cfcfcf;
+  cursor: pointer;
+}
+.dot:hover { background: var(--muted); }
+.dot[aria-current="true"] { background: var(--red); transform: scale(1.25); }
 .nav-arrow {
   width: 40px; height: 40px;
   border: 1.5px solid var(--red);
@@ -91,7 +106,6 @@ body {
 .nav-arrow:hover:not(:disabled) { background: var(--red); color: #fff; }
 .nav-arrow:disabled { opacity: .3; cursor: default; }
 
-.month-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
 .tab { white-space: nowrap; }
 .tab {
   border: 1.5px solid transparent;
@@ -544,9 +558,7 @@ input:focus-visible, textarea:focus-visible {
   .bar-meta { display: none; }
   .late-pill { font-size: 0; padding: 0 6px; min-width: 16px; text-align: center; }
   .late-pill::after { content: "!"; font-size: 10px; }
-  .month-nav { gap: 4px; }
   .nav-arrow { width: 34px; height: 34px; font-size: 20px; flex: none; }
-  .month-tabs { gap: 2px; }
   .legend { font-size: 12px; gap: 8px 14px; }
   .swatch { width: 11px; height: 18px; }
   .tab { padding: 7px 11px; font-size: 13px; }
