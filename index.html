@@ -117,6 +117,16 @@
         <input type="date" id="fFecha" required min="2026-10-01" max="2027-12-31">
       </label>
 
+      <label class="field">
+        <span class="field-label">Vigencia</span>
+        <select id="fVigencia"></select>
+      </label>
+
+      <label class="field" id="fHastaCampo" hidden>
+        <span class="field-label">Fecha hasta <small>(hasta cuándo tiene que estar en la cartelera)</small></span>
+        <input type="date" id="fHasta">
+      </label>
+
       <fieldset class="field">
         <legend class="field-label">Categoría</legend>
         <div class="chips" id="fCategorias"></div>

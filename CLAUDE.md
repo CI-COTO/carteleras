@@ -21,7 +21,7 @@ Datos compartidos en Firebase (Firestore). Un recordatorio por Teams corre en Gi
 ## Modelo de datos (colección `comunicaciones`)
 `titulo`, `archivo` (nombre de archivo sin extensión, obligatorio en el formulario), `fecha` (AAAA-MM-DD, fecha límite para SUBIRLA),
 `categoria` (coto, familia, argentinos, innovacion, mas, compromiso), `carteleras` (lista: central, sucursales, logisu; se muestra como "Campaña"),
-`descripcion`, y las etapas en orden obligatorio:
+`descripcion`, `vigencia` (estatica, dias, mensual, quincenal) y `fechaHasta` (AAAA-MM-DD, null si es estática; se sugiere sola en mensual/quincenal y se puede editar), y las etapas en orden obligatorio:
 `completa`/`completadaEl` = **Subida**, `publicada`/`publicadaEl` = **Publicada**, `bajada`/`bajadaEl` = **Bajada**.
 Destildar una etapa destilda las siguientes y borra sus fechas. Estado actual = la etapa más avanzada tildada, o "Pendiente".
 Las comunicaciones viejas pueden no tener `archivo`: se muestra el título en gris.
@@ -34,7 +34,9 @@ Las comunicaciones viejas pueden no tener `archivo`: se muestra el título en gr
   Avisa atrasadas, las de hoy y las de los próximos 7 días corridos (`DIAS_AVISO`). Si no hay nada pendiente, no envía.
   Las ejecuciones manuales (workflow_dispatch) siempre envían.
 - Historial: tabla con Fecha límite, Nombre de archivo, Campaña, Categoría, Estado actual; filtros por Categoría, Campaña y Estado;
-  "Descargar Excel" baja solo lo filtrado (con fechas de subida, publicación y bajada, sin el título) con el diseño del Excel de referencia (título, encabezado rojo, filas centradas con bordes) usando ExcelJS desde cdnjs (plan B: CSV).
+  "Descargar Excel" baja solo lo filtrado con el diseño del Excel de referencia (título, encabezado rojo, filas centradas con bordes) usando ExcelJS desde cdnjs (plan B: CSV).
+- "DAR DE BAJA": cartel en la barra del calendario cuando está Publicada, no Bajada y pasó `fechaHasta`. Es solo visual: no entra en los avisos de Teams.
+- Excel (orden fijo): Categorías, Campaña, Publicación (archivo), Vigencia, Fecha Desde (= `fecha`), Fecha Hasta, Mes, Estado, Fecha carga (= `completadaEl`). Con autofiltro y ancho de columna según el texto.
 - Símbolos de etapa: ✓ Subida, ▶ Publicada, ↓ Bajada (barras del calendario y píldora de estado del historial).
 
 ## Cómo probar
