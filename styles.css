@@ -32,8 +32,9 @@ body {
 /* ---------- Encabezado ---------- */
 .top { text-align: center; margin-bottom: 18px; position: relative; }
 
+.site-footer { margin-top: 28px; text-align: center; }
 .status {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 12px;
   color: var(--muted);
   min-height: 18px;
@@ -50,19 +51,9 @@ body {
 .status[data-mode="local"]::before { background: #e0a100; }
 .status[data-mode="error"]::before { background: #c62828; }
 
-.month-title {
-  margin: 0;
-  font-family: "Oswald", "Arial Narrow", sans-serif;
-  font-size: clamp(26px, 4.4vw, 40px);
-  line-height: 1.1;
-  color: var(--red);
-  text-transform: uppercase;
-}
-.month-name { font-weight: 700; }
-.year { font-weight: 300; }
-
 .subtitle {
-  margin: 4px 0 0;
+  margin: 0;
+  padding: 0 46px; /* lugar para el botón de ayuda */
   font-family: "Oswald", "Arial Narrow", sans-serif;
   font-weight: 300;
   font-size: clamp(24px, 5.6vw, 52px);
