@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// Acceso abierto por link (sin login), pero limitado a lo que la app necesita:
+// solo la colección "comunicaciones" y un documento "meta/init" para la carga inicial.
+// Se valida la forma de cada dato para evitar basura o cargas enormes.
+//
+// Campos nuevos (todos opcionales, para que las comunicaciones viejas sigan siendo válidas):
+//   archivo                  nombre de archivo (texto, hasta 150 caracteres)
+//   publicada / publicadaEl  etapa "Publicada" y el día en que se tildó
+//   bajada / bajadaEl        etapa "Bajada" y el día en que se tildó
+// "completa" / "completadaEl" es la etapa "Subida". Las etapas van en orden:
+// no puede estar publicada sin subida, ni bajada sin publicada.
+// Rango de fechas permitido: octubre de 2026 a diciembre de 2027.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function valida(d) {
+      return d.keys().hasOnly(
+          ['titulo', 'descripcion', 'categoria', 'carteleras', 'fecha',
+           'completa', 'completadaEl', 'archivo',
+           'publicada', 'publicadaEl', 'bajada', 'bajadaEl']
+        )
+        && d.titulo is string
+        && d.titulo.size() > 0
+        && d.titulo.size() <= 100
+        && d.descripcion is string
+        && d.descripcion.size() <= 500
+        && d.categoria in
+             ['coto', 'familia', 'argentinos', 'innovacion', 'mas', 'compromiso']
+        && d.carteleras is list
+        && d.carteleras.size() >= 1
+        && d.carteleras.size() <= 3
+        && d.fecha is string
+        && d.fecha.matches('^(2026-(10|11|12)|2027-(0[1-9]|1[0-2]))-[0-3][0-9]$')
+        && d.completa is bool
+        && (d.completadaEl == null || d.completadaEl is string)
+        && d.get('archivo', '') is string
+        && d.get('archivo', '').size() <= 150
+        && d.get('publicada', false) is bool
+        && (d.get('publicadaEl', null) == null || d.get('publicadaEl', null) is string)
+        && d.get('bajada', false) is bool
+        && (d.get('bajadaEl', null) == null || d.get('bajadaEl', null) is string)
+        && (!d.get('publicada', false) || d.completa)
+        && (!d.get('bajada', false) || d.get('publicada', false));
+    }
+
+    match /comunicaciones/{id} {
+      allow read: if true;
+      allow delete: if true;
+      allow create, update: if valida(request.resource.data);
+    }
+
+    match /meta/init {
+      allow read: if true;
+      allow create: if true;
+    }
+  }
+}
