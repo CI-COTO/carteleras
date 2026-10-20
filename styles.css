@@ -582,6 +582,7 @@ select#fVigencia:focus-visible { outline: 3px solid rgba(232, 71, 58, .3); borde
 .estado-subida    { background: #e3f1fb; color: #0b5394; }
 .estado-publicada { background: #e7f5ec; color: var(--done); }
 .estado-bajada    { background: var(--ink); color: #fff; }
+.estado-atrasada  { background: var(--late-pill); color: #fff; }
 .late-pill.baja { background: #b35a00; }
 .bar.is-baja { box-shadow: inset 0 0 0 2px #b35a00; }
 .late-pill.inline { margin: 0 0 0 8px; vertical-align: middle; }
