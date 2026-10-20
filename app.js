@@ -313,7 +313,6 @@ function actualizarVista() {
   $("#viewCalendario").hidden = !esCal;
   $("#viewHistorial").hidden = esCal;
   $("#monthNav").hidden = !esCal;
-  $("#monthTitle").hidden = !esCal;
   $("#subtitle").textContent = esCal ? "CALENDARIZACIÓN CARTELERAS DIGITALES" : "HISTORIAL DE CARTELERAS";
   $("#btnVistaCal").setAttribute("aria-current", String(esCal));
   $("#btnVistaHist").setAttribute("aria-current", String(!esCal));
@@ -409,10 +408,8 @@ function crearBarraFeriado(f) {
 }
 
 function renderCalendario() {
-  const { year, month, name } = MESES[mesIdx];
+  const { year, month } = MESES[mesIdx];
 
-  $("#monthName").textContent = name;
-  $("#yearNum").textContent = year;
   renderTabs();
 
   const porFecha = new Map();
