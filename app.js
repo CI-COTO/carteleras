@@ -867,14 +867,25 @@ function pedirConfirmacion(it) {
 /* ---------- Formulario ---------- */
 
 function armarCamposFijos() {
-  $("#fCategorias").replaceChildren(
+  $("#fCatList").replaceChildren(
     ...Object.entries(CATEGORIAS).map(([k, c]) =>
-      h("label", { class: "chip" },
-        h("input", { type: "radio", name: "categoria", value: k }),
-        h("span", {}, h("i", { style: `background:${c.bg}` }), c.label)
-      )
+      h("button", {
+        type: "button", class: "cat-opt", role: "option", "data-value": k,
+        onclick: () => { elegirCategoria(k); cerrarListaCategorias(); $("#fCatBtn").focus(); },
+      }, h("i", { class: "cat-dot", style: `background:${c.bg}` }), c.label)
     )
   );
+  $("#fCatBtn").addEventListener("click", () => {
+    const abrir = $("#fCatList").hidden;
+    $("#fCatList").hidden = !abrir;
+    $("#fCatBtn").setAttribute("aria-expanded", String(abrir));
+  });
+  // Esc cierra solo la lista (no el formulario) y un clic afuera también la cierra
+  $("#fCatSelect").addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#fCatList").hidden) { e.preventDefault(); e.stopPropagation(); cerrarListaCategorias(); $("#fCatBtn").focus(); }
+  });
+  $("#formDialog").addEventListener("click", (e) => { if (!e.target.closest("#fCatSelect")) cerrarListaCategorias(); });
+  $("#btnAddDesc").addEventListener("click", () => { mostrarDescripcion(true); $("#fDescripcion").focus(); });
   $("#fCarteleras").replaceChildren(
     ...Object.entries(CARTELERAS).map(([k, label]) =>
       h("label", {},
@@ -883,6 +894,28 @@ function armarCamposFijos() {
       )
     )
   );
+}
+
+function cerrarListaCategorias() {
+  $("#fCatList").hidden = true;
+  $("#fCatBtn").setAttribute("aria-expanded", "false");
+}
+
+function elegirCategoria(k) {
+  const c = CATEGORIAS[k];
+  $("#fCategoria").value = c ? k : "";
+  $("#fCatBtn").replaceChildren(
+    ...(c
+      ? [h("i", { class: "cat-dot", style: `background:${c.bg}` }), c.label]
+      : [h("span", { class: "vacio", text: "Elegí una categoría" })])
+  );
+  document.querySelectorAll(".cat-opt").forEach((o) => o.setAttribute("aria-selected", String(o.dataset.value === k)));
+}
+
+// La descripción es opcional: arranca oculta detrás de un botón
+function mostrarDescripcion(ver) {
+  $("#fDescCampo").hidden = !ver;
+  $("#btnAddDesc").hidden = ver;
 }
 
 function abrirForm(modo, { fecha, item } = {}) {
@@ -896,10 +929,12 @@ function abrirForm(modo, { fecha, item } = {}) {
   $("#fArchivo").value = item ? nombreArchivo(item) : "";
   $("#fFecha").value = item?.fecha ?? fecha ?? "";
   $("#fDescripcion").value = item?.descripcion ?? "";
+  mostrarDescripcion(!!item?.descripcion);
   $("#fVigencia").value = item?.vigencia ?? "estatica";
   $("#fHasta").value = item ? fechaHastaDe(item) : "";
   actualizarCampoHasta();
-  document.querySelectorAll('input[name="categoria"]').forEach((r) => (r.checked = r.value === item?.categoria));
+  elegirCategoria(item?.categoria);
+  cerrarListaCategorias();
   document.querySelectorAll('input[name="cartelera"]').forEach((c) => (c.checked = !!item && cartelerasDe(item).includes(c.value)));
 
   $("#detailDialog").close();
@@ -930,7 +965,7 @@ async function guardarForm(ev) {
   const descripcion = $("#fDescripcion").value.trim();
   const vigencia = $("#fVigencia").value;
   const fechaHasta = vigencia === "estatica" ? null : $("#fHasta").value || null;
-  const categoria = document.querySelector('input[name="categoria"]:checked')?.value;
+  const categoria = $("#fCategoria").value;
   const carteleras = [...document.querySelectorAll('input[name="cartelera"]:checked')].map((c) => c.value);
 
   if (!titulo) return mostrarError("Escribí un título para la comunicación.");

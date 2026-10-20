@@ -344,6 +344,55 @@ input:focus-visible, textarea:focus-visible {
   border-color: var(--red);
 }
 
+.field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 12px; }
+select#fVigencia {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  padding: 9px 10px;
+  border: 1.5px solid #cfcfcf;
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+}
+select#fVigencia:focus-visible { outline: 3px solid rgba(232, 71, 58, .3); border-color: var(--red); }
+
+.cat-btn {
+  width: 100%;
+  display: flex; align-items: center; gap: 8px;
+  font: inherit; font-size: 15px; text-align: left;
+  padding: 9px 10px;
+  border: 1.5px solid #cfcfcf;
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+.cat-btn::after { content: "▾"; margin-left: auto; color: var(--muted); }
+.cat-btn:focus-visible { outline: 3px solid rgba(232, 71, 58, .3); border-color: var(--red); }
+.cat-btn .vacio { color: var(--muted); }
+.cat-list {
+  margin-top: 4px; /* se despliega dentro del formulario para que no lo recorte */
+  background: #fff;
+  border: 1.5px solid #cfcfcf;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 22px rgba(0,0,0,.18);
+  padding: 4px;
+}
+.cat-opt {
+  width: 100%;
+  display: flex; align-items: center; gap: 8px;
+  font: inherit; font-size: 15px; text-align: left;
+  padding: 8px 10px;
+  border: 0; border-radius: 4px;
+  background: transparent; color: var(--ink);
+  cursor: pointer;
+}
+.cat-opt:hover, .cat-opt:focus-visible { background: #f3f3f3; outline: none; }
+.cat-opt[aria-selected="true"] { font-weight: 700; background: #fdecea; }
+.cat-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
+.add-desc { margin-bottom: 14px; }
+
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { position: relative; }
 .chip input { position: absolute; opacity: 0; inset: 0; }
