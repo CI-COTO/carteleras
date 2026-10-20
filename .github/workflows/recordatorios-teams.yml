@@ -1,13 +1,15 @@
-# Recordatorio diario de carteleras digitales por Teams.
-# Corre de lunes a viernes a las 6:45 (hora Argentina) para que el aviso
-# esté en Teams al arrancar el día. GitHub puede demorarlo unos minutos.
-# También se puede disparar a mano desde la pestaña "Actions".
+# Recordatorio de carteleras digitales por Teams.
+# Se dispara todos los días hábiles (lun a vie) a las 7:10 (hora Argentina);
+# el script decide si ese día toca enviar: lunes y miércoles, o el siguiente
+# día hábil si alguno cae en feriado. GitHub suele demorar el disparo unos
+# minutos, así que el aviso llega alrededor de las 7:15.
+# También se puede disparar a mano desde la pestaña "Actions" (siempre envía).
 
 name: Recordatorio Teams
 
 on:
   schedule:
-    - cron: "45 9 * * 1-5" # 09:45 UTC = 06:45 en Argentina (UTC-3)
+    - cron: "10 10 * * 1-5" # 10:10 UTC = 07:10 en Argentina (UTC-3)
   workflow_dispatch:
     inputs:
       prueba:
@@ -38,8 +40,9 @@ jobs:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
           FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
           CALENDARIO_URL: ${{ vars.CALENDARIO_URL }}
-          DIAS_AVISO: ${{ vars.DIAS_AVISO || '3' }}
+          DIAS_AVISO: ${{ vars.DIAS_AVISO || '7' }}
           ENVIAR_SI_VACIO: ${{ vars.ENVIAR_SI_VACIO || 'false' }}
+          FORZAR_ENVIO: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
           MODO_PRUEBA: ${{ inputs.prueba && 'true' || 'false' }}
           FECHA_HOY: ${{ inputs.fecha }}
         run: node recordatorios/enviar-recordatorio.mjs
