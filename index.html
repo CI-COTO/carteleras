@@ -26,9 +26,16 @@
       </div>
 
       <nav class="month-nav" id="monthNav" aria-label="Cambiar de mes">
-        <button type="button" class="nav-arrow" id="prevMonth" aria-label="Mes anterior">‹</button>
-        <div class="month-tabs" id="monthTabs"></div>
-        <button type="button" class="nav-arrow" id="nextMonth" aria-label="Mes siguiente">›</button>
+        <div class="year-bar">
+          <div class="year-tabs" id="yearTabs"></div>
+          <button type="button" class="tab hoy-btn" id="btnHoy">Hoy</button>
+        </div>
+        <div class="month-step">
+          <button type="button" class="nav-arrow" id="prevMonth" aria-label="Mes anterior">‹</button>
+          <span class="step-name" id="stepName" aria-live="polite"></span>
+          <button type="button" class="nav-arrow" id="nextMonth" aria-label="Mes siguiente">›</button>
+        </div>
+        <div class="month-dots" id="monthDots"></div>
       </nav>
     </header>
 
@@ -108,6 +115,16 @@
       <label class="field">
         <span class="field-label">Fecha límite <small>(debe estar subida)</small></span>
         <input type="date" id="fFecha" required min="2026-10-01" max="2027-12-31">
+      </label>
+
+      <label class="field">
+        <span class="field-label">Vigencia</span>
+        <select id="fVigencia"></select>
+      </label>
+
+      <label class="field" id="fHastaCampo" hidden>
+        <span class="field-label">Fecha hasta <small>(hasta cuándo tiene que estar en la cartelera)</small></span>
+        <input type="date" id="fHasta">
       </label>
 
       <fieldset class="field">
