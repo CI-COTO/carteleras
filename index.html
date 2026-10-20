@@ -13,7 +13,10 @@
   <main class="app">
 
     <header class="top">
-      <button type="button" class="help-btn" id="btnAyuda" aria-label="¿Cómo se usa?" title="¿Cómo se usa?">?</button>
+      <div class="top-bar">
+        <p class="status" id="status" role="status"></p>
+        <button type="button" class="help-btn" id="btnAyuda" aria-label="¿Cómo se usa?" title="¿Cómo se usa?">?</button>
+      </div>
       <h1 class="subtitle" id="subtitle">CALENDARIZACIÓN CARTELERAS DIGITALES</h1>
 
       <div class="view-switch" role="tablist" aria-label="Vista">
@@ -86,10 +89,6 @@
         </table>
       </div>
     </section>
-
-    <footer class="site-footer">
-      <p class="status" id="status" role="status"></p>
-    </footer>
   </main>
 
   <!-- Detalle de una comunicación -->
@@ -117,27 +116,34 @@
         <input type="date" id="fFecha" required min="2026-10-01" max="2027-12-31">
       </label>
 
-      <label class="field">
-        <span class="field-label">Vigencia</span>
-        <select id="fVigencia"></select>
-      </label>
+      <div class="field-row">
+        <label class="field">
+          <span class="field-label">Vigencia</span>
+          <select id="fVigencia"></select>
+        </label>
 
-      <label class="field" id="fHastaCampo" hidden>
-        <span class="field-label">Fecha hasta <small>(hasta cuándo tiene que estar en la cartelera)</small></span>
-        <input type="date" id="fHasta">
-      </label>
+        <label class="field" id="fHastaCampo" hidden>
+          <span class="field-label">Fecha hasta</span>
+          <input type="date" id="fHasta">
+        </label>
+      </div>
 
-      <fieldset class="field">
-        <legend class="field-label">Categoría</legend>
-        <div class="chips" id="fCategorias"></div>
-      </fieldset>
+      <div class="field">
+        <span class="field-label" id="fCatLabel">Categoría</span>
+        <div class="cat-select" id="fCatSelect">
+          <button type="button" class="cat-btn" id="fCatBtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="fCatLabel fCatBtn"></button>
+          <div class="cat-list" id="fCatList" role="listbox" aria-labelledby="fCatLabel" hidden></div>
+        </div>
+        <input type="hidden" id="fCategoria">
+      </div>
 
       <fieldset class="field">
         <legend class="field-label">Campaña</legend>
         <div class="checks" id="fCarteleras"></div>
       </fieldset>
 
-      <label class="field">
+      <button type="button" class="btn ghost add-desc" id="btnAddDesc">+ Agregar descripción</button>
+      <label class="field" id="fDescCampo" hidden>
         <span class="field-label">Descripción <small>(opcional)</small></span>
         <textarea id="fDescripcion" rows="3" maxlength="500" placeholder="Detalles, links o notas para el equipo"></textarea>
       </label>
