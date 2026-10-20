@@ -13,6 +13,7 @@
   <main class="app">
 
     <header class="top">
+      <button type="button" class="help-btn" id="btnAyuda" aria-label="¿Cómo se usa?" title="¿Cómo se usa?">?</button>
       <p class="status" id="status" role="status"></p>
       <h1 class="month-title" id="monthTitle">
         <span class="month-name" id="monthName"></span>
@@ -149,6 +150,69 @@
         <button type="submit" class="btn primary" id="formSave">Guardar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Instructivo -->
+  <dialog id="helpDialog" aria-labelledby="helpTitle" class="help">
+    <div class="sheet">
+      <h3 id="helpTitle">¿Cómo se usa?</h3>
+      <div class="help-body">
+        <details open>
+          <summary>1. El calendario</summary>
+          <ul>
+            <li>Cada barra de color es una comunicación, y el color indica su categoría (la leyenda está debajo del calendario).</li>
+            <li>La fecha en que aparece es la <b>fecha límite para subirla</b>.</li>
+            <li>Para cambiar de mes usá las flechas ‹ ›, los puntitos o las pestañas de año. <b>Hoy</b> te devuelve al mes actual.</li>
+            <li>Los feriados y días no laborables se ven en gris.</li>
+          </ul>
+        </details>
+        <details>
+          <summary>2. Cargar una comunicación</summary>
+          <ul>
+            <li>Tocá el <b>+</b> del día que quieras: se abre el formulario con esa fecha.</li>
+            <li>Completá título, nombre de archivo (sin extensión), fecha límite, categoría y campaña (Central, Sucursales y/o Logisu).</li>
+            <li>La descripción es opcional: sirve para dejar links o notas al equipo.</li>
+            <li>Para corregir algo, abrí la comunicación y tocá <b>Editar</b>.</li>
+          </ul>
+        </details>
+        <details>
+          <summary>3. Seguimiento: Subida, Publicada y Bajada</summary>
+          <ul>
+            <li>Abrí una comunicación y tildá las etapas <b>en orden</b>: primero Subida, después Publicada y por último Bajada.</li>
+            <li>Si destildás una etapa, se destildan también las siguientes.</li>
+            <li>Si pasó la fecha límite y no está subida, aparece el cartel rojo <b>PENDIENTE</b>.</li>
+            <li>Símbolos en el calendario: ✓ Subida · ▶ Publicada · ↓ Bajada.</li>
+          </ul>
+        </details>
+        <details>
+          <summary>4. Vigencia y "Dar de baja"</summary>
+          <ul>
+            <li><b>Estática</b>: no vence. <b>Quincenal</b> y <b>Mensual</b>: la fecha hasta se sugiere sola y la podés cambiar. <b>Días</b>: elegís vos la fecha hasta.</li>
+            <li>Cuando una cartelera está Publicada, pasó su fecha hasta y todavía no se bajó, aparece el cartel naranja <b>DAR DE BAJA</b>.</li>
+            <li>Se va al tildar la etapa Bajada.</li>
+          </ul>
+        </details>
+        <details>
+          <summary>5. Historial y Excel</summary>
+          <ul>
+            <li>En <b>Historial</b> ves todas las comunicaciones en una tabla y podés filtrar por categoría, campaña y estado.</li>
+            <li><b>Descargar Excel</b> baja solo lo que está filtrado en pantalla, con filtros en cada columna.</li>
+            <li>Tocá una fila para abrir su detalle.</li>
+          </ul>
+        </details>
+        <details>
+          <summary>6. Avisos por Teams</summary>
+          <ul>
+            <li>Los lunes y miércoles (o el siguiente día hábil si es feriado) llega un resumen por Teams.</li>
+            <li>Incluye las comunicaciones sin subir que están atrasadas, las de hoy y las de los próximos 7 días.</li>
+            <li>Si no hay nada pendiente, no se envía nada.</li>
+          </ul>
+        </details>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn primary" id="helpClose">Entendido</button>
+      </div>
+    </div>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

@@ -996,6 +996,9 @@ async function iniciar() {
   $("#btnVistaHist").addEventListener("click", () => cambiarVista("historial"));
   $("#commForm").addEventListener("submit", guardarForm);
   $("#formCancel").addEventListener("click", () => $("#formDialog").close());
+  $("#btnAyuda").addEventListener("click", () => $("#helpDialog").showModal());
+  $("#helpClose").addEventListener("click", () => $("#helpDialog").close());
+  cerrarAlClickearFondo($("#helpDialog"));
   cerrarAlClickearFondo($("#detailDialog"));
   cerrarAlClickearFondo($("#formDialog"));
 
