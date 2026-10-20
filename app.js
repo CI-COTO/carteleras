@@ -18,7 +18,7 @@ const firebaseConfig = {
 
 const FIREBASE_VERSION = "10.12.2";
 const COLLECTION = "comunicaciones";
-const SHEETJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+const EXCELJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
 
 /* ---------- Datos fijos ---------- */
 
@@ -50,11 +50,14 @@ const ESTADOS = ["Pendiente", "Subida", "Publicada", "Bajada"];
 // Símbolo de cada etapa (se ve en las barras del calendario y en el historial)
 const ICONOS = { Subida: "✓", Publicada: "▶", Bajada: "↓" };
 
-const MESES = [
-  { year: 2026, month: 9,  name: "Octubre" },
-  { year: 2026, month: 10, name: "Noviembre" },
-  { year: 2026, month: 11, name: "Diciembre" },
-];
+const NOMBRES_MES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+// De octubre de 2026 a diciembre de 2027
+const MESES = Array.from({ length: 15 }, (_, i) => {
+  const n = 9 + i;
+  return { year: 2026 + Math.floor(n / 12), month: n % 12, name: NOMBRES_MES[n % 12] };
+});
+const FECHA_MIN = "2026-10-01";
+const FECHA_MAX = "2027-12-31";
 
 // Feriados y días no laborables (Argentina, 2026). Fijos: no se editan.
 const FERIADOS = {
@@ -63,6 +66,20 @@ const FERIADOS = {
   "2026-12-07": { tipo: "No laborable", nombre: "Día no laborable con fines turísticos" },
   "2026-12-08": { tipo: "Feriado",      nombre: "Inmaculada Concepción de María" },
   "2026-12-25": { tipo: "Feriado",      nombre: "Navidad" },
+  // 2027 (los días no laborables con fines turísticos se suman cuando se publiquen)
+  "2027-01-01": { tipo: "Feriado",      nombre: "Año Nuevo" },
+  "2027-02-08": { tipo: "Feriado",      nombre: "Carnaval" },
+  "2027-02-09": { tipo: "Feriado",      nombre: "Carnaval" },
+  "2027-03-24": { tipo: "Feriado",      nombre: "Día Nacional de la Memoria por la Verdad y la Justicia" },
+  "2027-03-25": { tipo: "No laborable", nombre: "Jueves Santo" },
+  "2027-03-26": { tipo: "Feriado",      nombre: "Viernes Santo" },
+  "2027-04-02": { tipo: "Feriado",      nombre: "Día del Veterano y de los Caídos en la Guerra de Malvinas" },
+  "2027-05-25": { tipo: "Feriado",      nombre: "Día de la Revolución de Mayo" },
+  "2027-06-21": { tipo: "Feriado",      nombre: "Paso a la Inmortalidad del Gral. Güemes (trasladado del 17/6)" },
+  "2027-07-09": { tipo: "Feriado",      nombre: "Día de la Independencia" },
+  "2027-08-16": { tipo: "Feriado",      nombre: "Paso a la Inmortalidad del Gral. San Martín (trasladado del 17/8)" },
+  "2027-10-11": { tipo: "Feriado",      nombre: "Día del Respeto a la Diversidad Cultural (trasladado del 12/10)" },
+  "2027-12-08": { tipo: "Feriado",      nombre: "Inmaculada Concepción de María" },
 };
 
 // Carga inicial (tomada del PDF original). Se crea una sola vez.
@@ -308,7 +325,7 @@ function renderTabs() {
         class: "tab",
         "aria-current": idx === mesIdx ? "true" : "false",
         onclick: () => { mesIdx = idx; render(); },
-        text: m.name,
+        text: `${m.name} ${m.year}`,
       })
     )
   );
@@ -494,13 +511,13 @@ function renderHistorial() {
 /* ---------- Descarga a Excel ---------- */
 
 const COLUMNAS_EXCEL = [
-  "Fecha límite", "Nombre de archivo", "Campaña", "Categoría", "Estado actual",
+  "Fecha", "Nombre de archivo", "Campaña", "Categoría", "Estado actual",
   "Fecha de subida", "Fecha de publicación", "Fecha de bajada",
 ];
 
 function filasExcel(lista) {
   return lista.map((i) => ({
-    "Fecha límite": fmtCorta(i.fecha),
+    "Fecha": fmtCorta(i.fecha),
     // Las comunicaciones viejas sin nombre de archivo salen con su título, igual que en pantalla.
     "Nombre de archivo": nombreArchivo(i) || i.titulo,
     "Campaña": textoCarteleras(i),
@@ -512,16 +529,56 @@ function filasExcel(lista) {
   }));
 }
 
-function cargarSheetJS() {
-  if (window.XLSX) return Promise.resolve(window.XLSX);
+function cargarExcelJS() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
   return new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = SHEETJS_URL;
+    s.src = EXCELJS_URL;
     s.async = true;
-    s.onload = () => (window.XLSX ? resolve(window.XLSX) : reject(new Error("SheetJS no se inicializó")));
-    s.onerror = () => reject(new Error("No se pudo cargar SheetJS"));
+    s.onload = () => (window.ExcelJS ? resolve(window.ExcelJS) : reject(new Error("ExcelJS no se inicializó")));
+    s.onerror = () => reject(new Error("No se pudo cargar ExcelJS"));
     document.head.append(s);
   });
+}
+
+// Arma el libro con el mismo diseño del Excel de referencia: título, encabezado rojo y filas centradas con bordes.
+async function armarLibro(filas) {
+  const ExcelJS = await cargarExcelJS();
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Historial");
+  const anchos = [14, 39, 27, 19, 15, 17, 21, 17];
+  ws.columns = anchos.map((width) => ({ width }));
+
+  ws.mergeCells("A1:H1");
+  const titulo = ws.getCell("A1");
+  titulo.value = "Planificación Carteleras Digitales";
+  titulo.font = { name: "Roboto", size: 24, bold: true, color: { argb: "FFCF1F1B" } };
+  titulo.alignment = { horizontal: "center", vertical: "middle" };
+  ws.getRow(1).height = 45.6;
+
+  const borde = { style: "thin", color: { argb: "FF000000" } };
+  const bordes = { top: borde, left: borde, bottom: borde, right: borde };
+  const centrado = { horizontal: "center", vertical: "middle" };
+
+  const enc = ws.addRow(COLUMNAS_EXCEL);
+  enc.height = 25.8;
+  enc.eachCell((c) => {
+    c.font = { name: "Arial", size: 12, bold: true, color: { argb: "FFEAEAEA" } };
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE43631" } };
+    c.alignment = centrado;
+    c.border = bordes;
+  });
+
+  for (const f of filas) {
+    const fila = ws.addRow(COLUMNAS_EXCEL.map((c) => f[c] || ""));
+    fila.height = 15.6;
+    fila.eachCell({ includeEmpty: true }, (c) => {
+      c.font = { name: "Calibri", size: 12 };
+      c.alignment = centrado;
+      c.border = bordes;
+    });
+  }
+  return wb;
 }
 
 function descargarBlob(blob, nombre) {
@@ -549,12 +606,9 @@ async function descargarExcel() {
   const btn = $("#btnExcel");
   btn.disabled = true;
   try {
-    const XLSX = await cargarSheetJS();
-    const ws = XLSX.utils.json_to_sheet(filas, { header: COLUMNAS_EXCEL });
-    ws["!cols"] = [{ wch: 13 }, { wch: 38 }, { wch: 26 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 16 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Historial");
-    XLSX.writeFile(wb, `${nombre}.xlsx`);
+    const wb = await armarLibro(filas);
+    const buffer = await wb.xlsx.writeBuffer();
+    descargarBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${nombre}.xlsx`);
     toast(`Excel descargado (${plural(filas.length, "fila", "filas")})`);
   } catch (err) {
     console.error(err);
@@ -800,7 +854,7 @@ async function guardarForm(ev) {
   if (!titulo) return mostrarError("Escribí un título para la comunicación.");
   if (!archivo) return mostrarError("Escribí el nombre de archivo (sin extensión).");
   if (!fecha) return mostrarError("Elegí la fecha límite para subirla.");
-  if (fecha < "2026-10-01" || fecha > "2026-12-31") return mostrarError("La fecha tiene que estar entre octubre y diciembre de 2026.");
+  if (fecha < FECHA_MIN || fecha > FECHA_MAX) return mostrarError("La fecha tiene que estar entre octubre de 2026 y diciembre de 2027.");
   if (!categoria) return mostrarError("Elegí una categoría.");
   if (!carteleras.length) return mostrarError("Tildá al menos una campaña.");
 
