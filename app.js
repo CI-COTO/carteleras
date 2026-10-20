@@ -47,6 +47,8 @@ const ETAPAS = [
   { key: "bajada",    fecha: "bajadaEl",     nombre: "Bajada",    pendiente: "Pendiente de bajar.",    bloqueo: "Se habilita cuando esté publicada." },
 ];
 const ESTADOS = ["Pendiente", "Subida", "Publicada", "Bajada"];
+// Símbolo de cada etapa (se ve en las barras del calendario y en el historial)
+const ICONOS = { Subida: "✓", Publicada: "▶", Bajada: "↓" };
 
 const MESES = [
   { year: 2026, month: 9,  name: "Octubre" },
@@ -329,7 +331,7 @@ function crearBarra(item) {
       onclick: () => abrirDetalle(item.id),
     },
     h("span", { class: "bar-title" },
-      item.completa ? h("span", { class: "check", "aria-label": "Subida" }, "✓") : null,
+      ICONOS[estadoDe(item)] ? h("span", { class: "check", "aria-label": estadoDe(item) }, ICONOS[estadoDe(item)]) : null,
       item.titulo),
     meta ? h("span", { class: "bar-meta", text: meta }) : null,
     atrasada ? h("span", { class: "late-pill", text: "ATRASADA" }) : null
@@ -468,7 +470,7 @@ function crearFila(i) {
         h("i", { style: `background:${cat.bg}` }),
         cat.label)),
     h("td", { "data-label": "Estado actual" },
-      h("span", { class: `estado estado-${slugEstado(estado)}`, text: estado }),
+      h("span", { class: `estado estado-${slugEstado(estado)}`, text: ICONOS[estado] ? `${ICONOS[estado]} ${estado}` : estado }),
       estaAtrasada(i) ? h("span", { class: "late-pill inline", text: "ATRASADA" }) : null)
   );
 }
