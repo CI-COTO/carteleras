@@ -47,8 +47,6 @@ const ETAPAS = [
   { key: "bajada",    fecha: "bajadaEl",     nombre: "Bajada",    pendiente: "Pendiente de bajar.",    bloqueo: "Se habilita cuando esté publicada." },
 ];
 const ESTADOS = ["Pendiente", "Subida", "Publicada", "Bajada"];
-// Cuánto tiempo tiene que estar publicada. "Estática" no vence nunca; las demás tienen "Fecha hasta".
-const VIGENCIAS = { estatica: "Estática", dias: "Días", mensual: "Mensual", quincenal: "Quincenal" };
 // Símbolo de cada etapa (se ve en las barras del calendario y en el historial)
 const ICONOS = { Subida: "✓", Publicada: "▶", Bajada: "↓" };
 
@@ -123,17 +121,6 @@ const fmtLarga = (iso) =>
   new Date(utc(iso)).toLocaleDateString("es-AR", {
     weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
   });
-const desdeUTC = (ms) => {
-  const d = new Date(ms);
-  return toISO(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-};
-const sumarDias = (iso, n) => desdeUTC(utc(iso) + n * 86400000);
-// Mismo día del mes siguiente (si no existe, el último día de ese mes)
-const sumarMes = (iso) => {
-  const [y, m, d] = iso.split("-").map(Number);
-  const ultimo = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-  return desdeUTC(Date.UTC(y, m, Math.min(d, ultimo)));
-};
 const plural = (n, uno, otros) => `${n} ${n === 1 ? uno : otros}`;
 
 /* ---------- Helpers de DOM (siempre textContent: sin inyección de HTML) ---------- */
@@ -304,13 +291,10 @@ const textoCarteleras = (i) => cartelerasDe(i).map((k) => CARTELERAS[k]).join(" 
 const estadoDe = (i) => (i.bajada ? "Bajada" : i.publicada ? "Publicada" : i.completa ? "Subida" : "Pendiente");
 // Solo "Subida" cuenta para el cartel de atrasada (la fecha del calendario es el límite para subirla).
 const estaAtrasada = (i) => !i.completa && i.fecha < hoy;
-// Vigencia sugerida: quincenal = 15 días corridos, mensual = hasta el día anterior del mes siguiente.
-const hastaSugerida = (vigencia, desde) =>
-  !desde ? "" : vigencia === "quincenal" ? sumarDias(desde, 14) : vigencia === "mensual" ? sumarDias(sumarMes(desde), -1) : "";
 const fechaHastaDe = (i) => (typeof i.fechaHasta === "string" && ISO_RE.test(i.fechaHasta) ? i.fechaHasta : "");
-// Publicada, venció la vigencia y todavía no se bajó
+// Publicada, pasó la fecha hasta y todavía no se bajó
 const hayQueBajar = (i) => i.publicada && !i.bajada && !!fechaHastaDe(i) && fechaHastaDe(i) < hoy;
-const textoVigencia = (i) => VIGENCIAS[i.vigencia] ?? "";
+const textoHasta = (i) => fmtOpc(fechaHastaDe(i)) || "Sin fecha límite";
 const nombreArchivo = (i) => (typeof i.archivo === "string" ? i.archivo.trim() : "");
 
 /* ---------- Vistas ---------- */
@@ -538,9 +522,8 @@ function crearFila(i) {
       nombre
         ? nombre
         : h("span", { class: "sin-archivo", title: "Sin nombre de archivo: se muestra el título", text: i.titulo })),
-    h("td", { "data-label": "Vigencia", text: textoVigencia(i) || "—" }),
     h("td", { class: "c-fecha", "data-label": "Fecha Desde", text: fmtCorta(i.fecha) }),
-    h("td", { class: "c-fecha", "data-label": "Fecha Hasta", text: fmtOpc(fechaHastaDe(i)) || "—" }),
+    h("td", { class: "c-fecha", "data-label": "Fecha Hasta", text: textoHasta(i) }),
     h("td", { "data-label": "Mes", text: NOMBRES_MES[Number(i.fecha.slice(5, 7)) - 1] }),
     h("td", { "data-label": "Estado" },
       // Si está atrasada, el cartel rojo reemplaza al "Pendiente" gris
@@ -563,14 +546,14 @@ function renderHistorial() {
   $("#histBody").replaceChildren(
     ...(lista.length
       ? lista.map(crearFila)
-      : [h("tr", {}, h("td", { colspan: "8", class: "hist-empty", text: "No hay comunicaciones con estos filtros." }))])
+      : [h("tr", {}, h("td", { colspan: "7", class: "hist-empty", text: "No hay comunicaciones con estos filtros." }))])
   );
 }
 
 /* ---------- Descarga a Excel ---------- */
 
 const COLUMNAS_EXCEL = [
-  "Categorías", "Campaña", "Publicación (archivo)", "Vigencia", "Fecha Desde", "Fecha Hasta", "Mes", "Estado", "Fecha carga",
+  "Categorías", "Campaña", "Publicación (archivo)", "Fecha Desde", "Fecha Hasta", "Mes", "Estado", "Fecha carga",
 ];
 
 function filasExcel(lista) {
@@ -579,10 +562,9 @@ function filasExcel(lista) {
     "Campaña": textoCarteleras(i),
     // Las comunicaciones viejas sin nombre de archivo salen con su título, igual que en pantalla.
     "Publicación (archivo)": nombreArchivo(i) || i.titulo,
-    "Vigencia": textoVigencia(i),
     // La fecha del calendario es desde cuando tiene que estar subida
     "Fecha Desde": fmtCorta(i.fecha),
-    "Fecha Hasta": fmtOpc(fechaHastaDe(i)),
+    "Fecha Hasta": textoHasta(i),
     "Mes": NOMBRES_MES[Number(i.fecha.slice(5, 7)) - 1],
     "Estado": estadoDe(i),
     "Fecha carga": fmtOpc(i.completadaEl),
@@ -613,7 +595,7 @@ async function armarLibro(filas) {
   });
   ws.columns = anchos.map((width) => ({ width }));
 
-  ws.mergeCells("A1:I1");
+  ws.mergeCells("A1:H1");
   const titulo = ws.getCell("A1");
   titulo.value = "Planificación Carteleras Digitales";
   titulo.font = { name: "Roboto", size: 24, bold: true, color: { argb: "FFCF1F1B" } };
@@ -739,11 +721,11 @@ function notaEtapa(it, idx) {
   }
   if (idx === 0 && estaAtrasada(it)) {
     const d = diffDias(hoy, it.fecha);
-    return { clase: "late", texto: `Pendiente: la fecha límite era hace ${plural(d, "día", "días")}.` };
+    return { clase: "late", texto: `Pendiente: la fecha de subida era hace ${plural(d, "día", "días")}.` };
   }
   if (idx === 2 && hayQueBajar(it)) {
     const d = diffDias(hoy, fechaHastaDe(it));
-    return { clase: "late", texto: `Dar de baja: la vigencia terminó hace ${plural(d, "día", "días")} (${fmtCorta(fechaHastaDe(it))}).` };
+    return { clase: "late", texto: `Dar de baja: la fecha hasta (${fmtCorta(fechaHastaDe(it))}) pasó hace ${plural(d, "día", "días")}.` };
   }
   const previaOk = idx === 0 || !!it[ETAPAS[idx - 1].key];
   return { clase: "", texto: previaOk ? e.pendiente : e.bloqueo };
@@ -808,7 +790,7 @@ function renderDetalle(it) {
   $("#detailSheet").replaceChildren(
     h("span", { class: "d-cat", style: `background:${cat.bg};color:${cat.fg}`, text: cat.label }),
     h("h3", { class: "d-title", id: "detailTitle", text: it.titulo }),
-    h("p", { class: "d-date", text: `Fecha límite para subirla: ${fmtLarga(it.fecha)}` }),
+    h("p", { class: "d-date", text: `Fecha de subida: ${fmtLarga(it.fecha)}` }),
     h("div", { class: "d-row" },
       h("b", { text: "Nombre de archivo" }),
       nombre
@@ -827,10 +809,10 @@ function renderDetalle(it) {
       meta || h("span", { class: "d-empty", text: "Sin campaña asignada" })
     ),
     h("div", { class: "d-row" },
-      h("b", { text: "Vigencia" }),
-      textoVigencia(it)
-        ? `${textoVigencia(it)}${fechaHastaDe(it) ? " · hasta el " + fmtCorta(fechaHastaDe(it)) : ""}`
-        : h("span", { class: "d-empty", text: "Sin vigencia (tocá Editar para cargarla)" })
+      h("b", { text: "Fecha hasta" }),
+      fechaHastaDe(it)
+        ? fmtLarga(fechaHastaDe(it))
+        : h("span", { class: "d-empty", text: "Sin fecha límite" })
     ),
     h("div", { class: "d-row" },
       h("b", { text: "Descripción" }),
@@ -937,7 +919,8 @@ function abrirForm(modo, { fecha, item } = {}) {
   $("#fFecha").value = item?.fecha ?? fecha ?? "";
   $("#fDescripcion").value = item?.descripcion ?? "";
   mostrarDescripcion(!!item?.descripcion);
-  $("#fVigencia").value = item?.vigencia ?? "estatica";
+  // Una comunicación sin fecha hasta (incluidas las anteriores a este campo) queda como "Sin fecha límite"
+  $("#fSinHasta").checked = !!item && !fechaHastaDe(item);
   $("#fHasta").value = item ? fechaHastaDe(item) : "";
   actualizarCampoHasta();
   elegirCategoria(item?.categoria);
@@ -949,12 +932,12 @@ function abrirForm(modo, { fecha, item } = {}) {
   $("#fTitulo").focus();
 }
 
-// "Fecha hasta" solo aplica si la vigencia no es estática
-function actualizarCampoHasta(sugerir = false) {
-  const vigencia = $("#fVigencia").value;
-  $("#fHastaCampo").hidden = vigencia === "estatica";
+// Con "Sin fecha límite" tildado, la fecha hasta se apaga
+function actualizarCampoHasta() {
+  const sin = $("#fSinHasta").checked;
+  if (sin) $("#fHasta").value = "";
+  $("#fHasta").disabled = sin;
   $("#fHasta").min = $("#fFecha").value || "";
-  if (sugerir) $("#fHasta").value = hastaSugerida(vigencia, $("#fFecha").value);
 }
 
 function mostrarError(msg) {
@@ -970,17 +953,16 @@ async function guardarForm(ev) {
   const archivo = $("#fArchivo").value.trim();
   const fecha = $("#fFecha").value;
   const descripcion = $("#fDescripcion").value.trim();
-  const vigencia = $("#fVigencia").value;
-  const fechaHasta = vigencia === "estatica" ? null : $("#fHasta").value || null;
+  const fechaHasta = $("#fSinHasta").checked ? null : $("#fHasta").value || null;
   const categoria = $("#fCategoria").value;
   const carteleras = [...document.querySelectorAll('input[name="cartelera"]:checked')].map((c) => c.value);
 
   if (!titulo) return mostrarError("Escribí un título para la comunicación.");
   if (!archivo) return mostrarError("Escribí el nombre de archivo (sin extensión).");
-  if (!fecha) return mostrarError("Elegí la fecha límite para subirla.");
+  if (!fecha) return mostrarError("Elegí la fecha de subida.");
   if (fecha < FECHA_MIN || fecha > FECHA_MAX) return mostrarError("La fecha tiene que estar entre octubre de 2026 y diciembre de 2027.");
-  if (vigencia !== "estatica" && !fechaHasta) return mostrarError("Elegí hasta qué fecha tiene que estar la cartelera.");
-  if (fechaHasta && fechaHasta < fecha) return mostrarError("La fecha hasta no puede ser anterior a la fecha límite.");
+  if (!fechaHasta && !$("#fSinHasta").checked) return mostrarError("Elegí hasta qué fecha tiene que estar la cartelera, o tildá \"Sin fecha límite\".");
+  if (fechaHasta && fechaHasta < fecha) return mostrarError("La fecha hasta no puede ser anterior a la fecha de subida.");
   if (!categoria) return mostrarError("Elegí una categoría.");
   if (!carteleras.length) return mostrarError("Tildá al menos una campaña.");
 
@@ -988,11 +970,11 @@ async function guardarForm(ev) {
   btn.disabled = true;
   try {
     if (formModo === "editar") {
-      await store.update(formId, { titulo, archivo, fecha, descripcion, categoria, carteleras, vigencia, fechaHasta });
+      await store.update(formId, { titulo, archivo, fecha, descripcion, categoria, carteleras, fechaHasta });
       toast("Cambios guardados");
     } else {
       await store.add({
-        titulo, archivo, fecha, descripcion, categoria, carteleras, vigencia, fechaHasta,
+        titulo, archivo, fecha, descripcion, categoria, carteleras, fechaHasta,
         completa: false, completadaEl: null,
         publicada: false, publicadaEl: null,
         bajada: false, bajadaEl: null,
@@ -1035,9 +1017,8 @@ async function iniciar() {
   armarLeyenda();
   armarCamposFijos();
   armarFiltros();
-  $("#fVigencia").replaceChildren(...Object.entries(VIGENCIAS).map(([k, label]) => h("option", { value: k, text: label })));
-  $("#fVigencia").addEventListener("change", () => actualizarCampoHasta(true));
-  $("#fFecha").addEventListener("change", () => actualizarCampoHasta($("#fVigencia").value !== "dias"));
+  $("#fSinHasta").addEventListener("change", actualizarCampoHasta);
+  $("#fFecha").addEventListener("change", actualizarCampoHasta);
 
   // Mes inicial: el actual si está en el rango, si no octubre
   const t = new Date();

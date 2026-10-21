@@ -19,12 +19,13 @@ Datos compartidos en Firebase (Firestore). Un recordatorio por Teams corre en Gi
 - `recordatorios/LEEME.md`: guía de configuración (Workflow de Teams, secrets y variables de GitHub, pruebas).
 
 ## Modelo de datos (colección `comunicaciones`)
-`titulo`, `archivo` (nombre de archivo sin extensión, obligatorio en el formulario), `fecha` (AAAA-MM-DD, fecha límite para SUBIRLA),
+`titulo`, `archivo` (nombre de archivo sin extensión, obligatorio en el formulario), `fecha` (AAAA-MM-DD, "Fecha de subida": fecha límite para SUBIRLA),
 `categoria` (coto, familia, argentinos, innovacion, mas, compromiso), `carteleras` (lista: central, sucursales, logisu; se muestra como "Campaña"),
-`descripcion`, `vigencia` (estatica, dias, mensual, quincenal) y `fechaHasta` (AAAA-MM-DD, null si es estática; se sugiere sola en mensual/quincenal y se puede editar), y las etapas en orden obligatorio:
+`descripcion`, `fechaHasta` (AAAA-MM-DD: hasta cuándo debe estar la cartelera; null = "Sin fecha límite", se elige con un check en el formulario) y las etapas en orden obligatorio:
 `completa`/`completadaEl` = **Subida**, `publicada`/`publicadaEl` = **Publicada**, `bajada`/`bajadaEl` = **Bajada**.
 Destildar una etapa destilda las siguientes y borra sus fechas. Estado actual = la etapa más avanzada tildada, o "Pendiente".
 Las comunicaciones viejas pueden no tener `archivo`: se muestra el título en gris.
+El campo `vigencia` (estatica, dias, mensual, quincenal) ya no se usa ni se muestra: las comunicaciones viejas pueden conservarlo, por eso `firestore.rules` lo sigue aceptando. Sin `fechaHasta` = "Sin fecha límite".
 
 ## Reglas de negocio
 - Solo **Subida** genera el cartel PENDIENTE (internamente `estaAtrasada`) y los avisos de Teams. Publicada y Bajada son solo seguimiento.
@@ -33,10 +34,10 @@ Las comunicaciones viejas pueden no tener `archivo`: se muestra el título en gr
 - Alerta de Teams: lunes y miércoles; si caen en feriado/no laborable, el siguiente día hábil; sábados y domingos nunca.
   Avisa atrasadas, las de hoy y las de los próximos 7 días corridos (`DIAS_AVISO`). Si no hay nada pendiente, no envía.
   Las ejecuciones manuales (workflow_dispatch) siempre envían.
-- Historial: tabla con Categoría, Campaña, Nombre de archivo, Vigencia, Fecha Desde (= `fecha`), Fecha Hasta, Mes, Estado; filtros por Categoría, Campaña y Estado;
+- Historial: tabla con Categoría, Campaña, Nombre de archivo, Fecha Desde (= `fecha`), Fecha Hasta ("Sin fecha límite" si no tiene), Mes, Estado; filtros por Categoría, Campaña y Estado;
   "Descargar Excel" baja solo lo filtrado con el diseño del Excel de referencia (título, encabezado rojo, filas centradas con bordes) usando ExcelJS desde cdnjs (plan B: CSV).
-- "DAR DE BAJA": cartel en la barra del calendario cuando está Publicada, no Bajada y pasó `fechaHasta`. Es solo visual: no entra en los avisos de Teams.
-- Excel (orden fijo): Categorías, Campaña, Publicación (archivo), Vigencia, Fecha Desde (= `fecha`), Fecha Hasta, Mes, Estado, Fecha carga (= `completadaEl`). Con autofiltro y ancho de columna según el texto.
+- "DAR DE BAJA": cartel en la barra del calendario cuando está Publicada, no Bajada y pasó `fechaHasta` (sin fecha hasta nunca aparece). Es solo visual: no entra en los avisos de Teams.
+- Excel (orden fijo): Categorías, Campaña, Publicación (archivo), Fecha Desde (= `fecha`), Fecha Hasta ("Sin fecha límite" si no tiene), Mes, Estado, Fecha carga (= `completadaEl`). Con autofiltro y ancho de columna según el texto.
 - Símbolos de etapa: ✓ Subida, ▶ Publicada, ↓ Bajada (barras del calendario y píldora de estado del historial).
 
 ## Cómo probar
