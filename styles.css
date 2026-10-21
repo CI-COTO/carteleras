@@ -345,17 +345,15 @@ input:focus-visible, textarea:focus-visible {
 }
 
 .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 12px; }
-select#fVigencia {
-  width: 100%;
-  font: inherit;
-  font-size: 15px;
-  padding: 9px 10px;
-  border: 1.5px solid #cfcfcf;
-  border-radius: var(--radius);
-  background: #fff;
-  color: var(--ink);
+.hasta-row { align-items: end; }
+.check-inline {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 14px; padding: 9px 0;
+  font-size: 14px; font-weight: 600;
+  cursor: pointer;
 }
-select#fVigencia:focus-visible { outline: 3px solid rgba(232, 71, 58, .3); border-color: var(--red); }
+.check-inline input { width: 18px; height: 18px; accent-color: var(--red); }
+input[type="date"]:disabled { background: #f3f3f3; color: #9a9a9a; }
 
 .cat-btn {
   width: 100%;

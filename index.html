@@ -81,7 +81,6 @@
               <th scope="col">Categoría</th>
               <th scope="col">Campaña</th>
               <th scope="col">Nombre de archivo</th>
-              <th scope="col">Vigencia</th>
               <th scope="col">Fecha Desde</th>
               <th scope="col">Fecha Hasta</th>
               <th scope="col">Mes</th>
@@ -115,19 +114,18 @@
       </label>
 
       <label class="field">
-        <span class="field-label">Fecha límite <small>(debe estar subida)</small></span>
+        <span class="field-label">Fecha de subida</span>
         <input type="date" id="fFecha" required min="2026-10-01" max="2027-12-31">
       </label>
 
-      <div class="field-row">
+      <div class="field-row hasta-row">
         <label class="field">
-          <span class="field-label">Vigencia</span>
-          <select id="fVigencia"></select>
-        </label>
-
-        <label class="field" id="fHastaCampo" hidden>
           <span class="field-label">Fecha hasta</span>
           <input type="date" id="fHasta">
+        </label>
+        <label class="check-inline">
+          <input type="checkbox" id="fSinHasta">
+          Sin fecha límite
         </label>
       </div>
 
@@ -169,7 +167,7 @@
           <summary>1. El calendario</summary>
           <ul>
             <li>Cada barra de color es una comunicación, y el color indica su categoría (la leyenda está debajo del calendario).</li>
-            <li>La fecha en que aparece es la <b>fecha límite para subirla</b>.</li>
+            <li>La fecha en que aparece es la <b>fecha de subida</b>.</li>
             <li>Para cambiar de mes usá las flechas ‹ ›, los puntitos o las pestañas de año. <b>Hoy</b> te devuelve al mes actual.</li>
             <li>Los feriados y días no laborables se ven en gris.</li>
           </ul>
@@ -178,7 +176,7 @@
           <summary>2. Cargar una comunicación</summary>
           <ul>
             <li>Tocá el <b>+</b> del día que quieras: se abre el formulario con esa fecha.</li>
-            <li>Completá título, nombre de archivo (sin extensión), fecha límite, categoría y campaña (Central, Sucursales y/o Logisu).</li>
+            <li>Completá título, nombre de archivo (sin extensión), fecha de subida, fecha hasta (o tildá <b>Sin fecha límite</b>), categoría y campaña (Central, Sucursales y/o Logisu).</li>
             <li>La descripción es opcional: sirve para dejar links o notas al equipo.</li>
             <li>Para corregir algo, abrí la comunicación y tocá <b>Editar</b>.</li>
           </ul>
@@ -188,14 +186,14 @@
           <ul>
             <li>Abrí una comunicación y tildá las etapas <b>en orden</b>: primero Subida, después Publicada y por último Bajada.</li>
             <li>Si destildás una etapa, se destildan también las siguientes.</li>
-            <li>Si pasó la fecha límite y no está subida, aparece el cartel rojo <b>PENDIENTE</b>.</li>
+            <li>Si pasó la fecha de subida y no está subida, aparece el cartel rojo <b>PENDIENTE</b>.</li>
             <li>Símbolos en el calendario: ✓ Subida · ▶ Publicada · ↓ Bajada.</li>
           </ul>
         </details>
         <details>
-          <summary>4. Vigencia y "Dar de baja"</summary>
+          <summary>4. Fecha hasta y "Dar de baja"</summary>
           <ul>
-            <li><b>Estática</b>: no vence. <b>Quincenal</b> y <b>Mensual</b>: la fecha hasta se sugiere sola y la podés cambiar. <b>Días</b>: elegís vos la fecha hasta.</li>
+            <li>La <b>fecha hasta</b> indica hasta cuándo tiene que estar la cartelera. Si no tiene una fecha definida, tildá <b>Sin fecha límite</b>.</li>
             <li>Cuando una cartelera está Publicada, pasó su fecha hasta y todavía no se bajó, aparece el cartel naranja <b>DAR DE BAJA</b>.</li>
             <li>Se va al tildar la etapa Bajada.</li>
           </ul>
