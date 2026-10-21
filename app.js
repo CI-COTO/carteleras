@@ -294,6 +294,8 @@ const estaAtrasada = (i) => !i.completa && i.fecha < hoy;
 const fechaHastaDe = (i) => (typeof i.fechaHasta === "string" && ISO_RE.test(i.fechaHasta) ? i.fechaHasta : "");
 // Publicada, pasó la fecha hasta y todavía no se bajó
 const hayQueBajar = (i) => i.publicada && !i.bajada && !!fechaHastaDe(i) && fechaHastaDe(i) < hoy;
+// Activa = publicada, sin bajar y dentro de su fecha hasta (o sin fecha límite)
+const esActiva = (i) => i.publicada && !i.bajada && !hayQueBajar(i);
 const textoHasta = (i) => fmtOpc(fechaHastaDe(i)) || "Sin fecha límite";
 const nombreArchivo = (i) => (typeof i.archivo === "string" ? i.archivo.trim() : "");
 
@@ -304,20 +306,30 @@ function cambiarVista(v) {
   render();
 }
 
+const TITULOS_VISTA = {
+  calendario: "CALENDARIZACIÓN CARTELERAS DIGITALES",
+  activas: "CARTELERAS ACTIVAS",
+  historial: "HISTORIAL DE CARTELERAS",
+};
+
 function actualizarVista() {
-  const esCal = vista === "calendario";
-  $("#viewCalendario").hidden = !esCal;
-  $("#viewHistorial").hidden = esCal;
-  $("#monthNav").hidden = !esCal;
-  $("#subtitle").textContent = esCal ? "CALENDARIZACIÓN CARTELERAS DIGITALES" : "HISTORIAL DE CARTELERAS";
-  $("#btnVistaCal").setAttribute("aria-current", String(esCal));
-  $("#btnVistaHist").setAttribute("aria-current", String(!esCal));
+  $("#viewCalendario").hidden = vista !== "calendario";
+  $("#viewActivas").hidden = vista !== "activas";
+  $("#viewHistorial").hidden = vista !== "historial";
+  $("#monthNav").hidden = vista !== "calendario";
+  $("#subtitle").textContent = TITULOS_VISTA[vista];
+  $("#btnVistaCal").setAttribute("aria-current", String(vista === "calendario"));
+  $("#btnVistaAct").setAttribute("aria-current", String(vista === "activas"));
+  $("#btnVistaHist").setAttribute("aria-current", String(vista === "historial"));
 }
 
 function render() {
   hoy = hoyISO();
   actualizarVista();
+  // El contador de la pestaña se actualiza en cualquier vista
+  $("#btnVistaAct").textContent = `Activas (${items.filter(itemValido).filter(esActiva).length})`;
   if (vista === "calendario") renderCalendario();
+  else if (vista === "activas") renderActivas();
   else renderHistorial();
 
   // Si hay un detalle abierto, lo refrescamos (o lo cerramos si ya no existe)
@@ -458,6 +470,78 @@ function renderCalendario() {
     );
   }
   $("#grid").replaceChildren(...celdas);
+}
+
+/* ---------- Activas ---------- */
+
+let bajaPendienteId = null; // fila que está pidiendo confirmación
+
+async function darDeBaja(it) {
+  try {
+    await store.update(it.id, { bajada: true, bajadaEl: hoyISO() });
+    bajaPendienteId = null;
+    toast("Dada de baja");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo dar de baja. Probá de nuevo.");
+  }
+}
+
+function crearFilaActiva(i) {
+  const cat = catDe(i);
+  const vencida = hayQueBajar(i);
+  const confirmando = bajaPendienteId === i.id;
+  const nombre = nombreArchivo(i);
+  const abrir = () => abrirDetalle(i.id);
+  const frenar = (fn) => (e) => { e.stopPropagation(); fn(); };
+
+  return h("div", {
+      class: "act-row" + (vencida ? " is-vencida" : ""),
+      tabindex: "0",
+      onclick: abrir,
+      onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abrir(); } },
+    },
+    h("span", { class: "cat-pill" }, h("i", { style: `background:${cat.bg}` }), cat.label),
+    h("span", { class: "act-camp", text: textoCarteleras(i) || "—" }),
+    h("span", { class: "act-archivo" },
+      nombre || h("span", { class: "sin-archivo", text: i.titulo })),
+    h("span", { class: "act-hasta" },
+      fechaHastaDe(i) ? `Hasta ${fmtCorta(fechaHastaDe(i))}` : "Sin fecha límite",
+      vencida ? h("span", { class: "late-pill inline baja", text: "DAR DE BAJA" }) : null),
+    h("span", { class: "act-accion" },
+      confirmando
+        ? [
+            h("span", { class: "act-confirma", text: "¿Dar de baja?" }),
+            h("button", { type: "button", class: "btn danger-solid", onclick: frenar(() => darDeBaja(i)), text: "Sí" }),
+            h("button", { type: "button", class: "btn ghost", onclick: frenar(() => { bajaPendienteId = null; renderActivas(); }), text: "No" }),
+          ]
+        : h("button", {
+            type: "button",
+            class: "btn danger",
+            onclick: frenar(() => { bajaPendienteId = i.id; renderActivas(); }),
+            "aria-label": `Dar de baja ${nombre || i.titulo}`,
+            text: "Dar de baja",
+          }))
+  );
+}
+
+function renderActivas() {
+  const validas = items.filter(itemValido);
+  const vencidas = validas.filter(hayQueBajar).sort((a, b) => fechaHastaDe(a).localeCompare(fechaHastaDe(b)));
+  const activas = validas.filter(esActiva);
+  const conFecha = activas.filter(fechaHastaDe).sort((a, b) => fechaHastaDe(a).localeCompare(fechaHastaDe(b)));
+  const sinFecha = activas.filter((i) => !fechaHastaDe(i))
+    .sort((a, b) => (nombreArchivo(a) || a.titulo).localeCompare(nombreArchivo(b) || b.titulo, "es"));
+  const lista = [...vencidas, ...conFecha, ...sinFecha];
+
+  $("#actCount").textContent =
+    plural(activas.length, "cartelera activa", "carteleras activas") +
+    (vencidas.length ? ` · ${plural(vencidas.length, "para dar de baja", "para dar de baja")}` : "");
+  $("#actList").replaceChildren(
+    ...(lista.length
+      ? lista.map(crearFilaActiva)
+      : [h("p", { class: "hist-empty", text: "No hay carteleras activas." })])
+  );
 }
 
 /* ---------- Historial ---------- */
@@ -1029,6 +1113,7 @@ async function iniciar() {
   $("#prevMonth").addEventListener("click", () => { if (mesIdx > 0) { mesIdx--; render(); } });
   $("#nextMonth").addEventListener("click", () => { if (mesIdx < MESES.length - 1) { mesIdx++; render(); } });
   $("#btnVistaCal").addEventListener("click", () => cambiarVista("calendario"));
+  $("#btnVistaAct").addEventListener("click", () => cambiarVista("activas"));
   $("#btnVistaHist").addEventListener("click", () => cambiarVista("historial"));
   $("#commForm").addEventListener("submit", guardarForm);
   $("#formCancel").addEventListener("click", () => $("#formDialog").close());

@@ -21,6 +21,7 @@
 
       <div class="view-switch" role="tablist" aria-label="Vista">
         <button type="button" class="view-btn" id="btnVistaCal" role="tab" aria-current="true">Calendario</button>
+        <button type="button" class="view-btn" id="btnVistaAct" role="tab" aria-current="false">Activas (0)</button>
         <button type="button" class="view-btn" id="btnVistaHist" role="tab" aria-current="false">Historial</button>
       </div>
 
@@ -50,6 +51,12 @@
 
       <footer class="legend" id="legend" aria-label="Categorías"></footer>
     </div>
+
+    <!-- Vista: activas -->
+    <section id="viewActivas" aria-label="Carteleras activas" hidden>
+      <p class="hist-count" id="actCount" role="status"></p>
+      <div class="act-list" id="actList"></div>
+    </section>
 
     <!-- Vista: historial -->
     <section id="viewHistorial" aria-label="Historial de carteleras" hidden>
@@ -199,7 +206,15 @@
           </ul>
         </details>
         <details>
-          <summary>5. Historial y Excel</summary>
+          <summary>5. Activas</summary>
+          <ul>
+            <li>La pestaña <b>Activas</b> muestra las carteleras que están Publicadas, todavía no se bajaron y siguen dentro de su fecha hasta. El número entre paréntesis es la cantidad.</li>
+            <li>Arriba aparecen las que ya pasaron su fecha hasta, con el cartel naranja <b>DAR DE BAJA</b>: no suman al contador.</li>
+            <li>El botón <b>Dar de baja</b> pide confirmación y marca la etapa Bajada con la fecha de hoy, sin abrir la edición.</li>
+          </ul>
+        </details>
+        <details>
+          <summary>6. Historial y Excel</summary>
           <ul>
             <li>En <b>Historial</b> ves todas las comunicaciones en una tabla y podés filtrar por categoría, campaña y estado.</li>
             <li><b>Descargar Excel</b> baja solo lo que está filtrado en pantalla, con filtros en cada columna.</li>
@@ -207,7 +222,7 @@
           </ul>
         </details>
         <details>
-          <summary>6. Avisos por Teams</summary>
+          <summary>7. Avisos por Teams</summary>
           <ul>
             <li>Los lunes y miércoles (o el siguiente día hábil si es feriado) llega un resumen por Teams.</li>
             <li>Incluye las comunicaciones sin subir que están atrasadas, las de hoy y las de los próximos 7 días.</li>
