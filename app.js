@@ -296,7 +296,7 @@ const fechaHastaDe = (i) => (typeof i.fechaHasta === "string" && ISO_RE.test(i.f
 const hayQueBajar = (i) => i.publicada && !i.bajada && !!fechaHastaDe(i) && fechaHastaDe(i) < hoy;
 // Activa = publicada, sin bajar y dentro de su fecha hasta (o sin fecha límite)
 const esActiva = (i) => i.publicada && !i.bajada && !hayQueBajar(i);
-const textoHasta = (i) => fmtOpc(fechaHastaDe(i)) || "Sin fecha límite";
+const textoHasta = (i) => fmtOpc(fechaHastaDe(i)) || "-";
 const nombreArchivo = (i) => (typeof i.archivo === "string" ? i.archivo.trim() : "");
 
 /* ---------- Vistas ---------- */
@@ -506,7 +506,7 @@ function crearFilaActiva(i) {
     h("span", { class: "act-archivo" },
       nombre || h("span", { class: "sin-archivo", text: i.titulo })),
     h("span", { class: "act-hasta" },
-      fechaHastaDe(i) ? `Hasta ${fmtCorta(fechaHastaDe(i))}` : "Sin fecha límite",
+      fechaHastaDe(i) ? `Hasta ${fmtCorta(fechaHastaDe(i))}` : "-",
       vencida ? h("span", { class: "late-pill inline baja", text: "DAR DE BAJA" }) : null),
     h("span", { class: "act-accion" },
       confirmando
@@ -896,7 +896,7 @@ function renderDetalle(it) {
       h("b", { text: "Fecha hasta" }),
       fechaHastaDe(it)
         ? fmtLarga(fechaHastaDe(it))
-        : h("span", { class: "d-empty", text: "Sin fecha límite" })
+        : h("span", { class: "d-empty", text: "-" })
     ),
     h("div", { class: "d-row" },
       h("b", { text: "Descripción" }),
