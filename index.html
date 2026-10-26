@@ -6,7 +6,7 @@
   <title>Calendarización Carteleras Digitales · Somos Coto</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Oswald:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Oswald:wght@300;400;600;700&family=Dosis:wght@600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -116,32 +116,26 @@
       </div>
       </div>
 
-      <div id="histGrafico" hidden>
-        <div class="hist-filters">
-          <label class="hist-filter">
-            <span>Gráfico</span>
-            <select id="grfTipo"></select>
-          </label>
-          <label class="hist-filter" id="grfAgrupCampo" hidden>
-            <span>Agrupar por</span>
-            <select id="grfAgrup"></select>
-          </label>
-          <div class="hist-filter mes-filter" id="grfMesWrap">
-            <span id="grfMesLabel">Mes</span>
-            <details id="grfMes" class="mes-details">
-              <summary aria-labelledby="grfMesLabel grfMesResumen"><span id="grfMesResumen">Todos</span></summary>
-              <div class="mes-panel" id="grfMesPanel"></div>
-            </details>
-          </div>
-          <div class="hist-buttons">
-            <button type="button" class="btn primary" id="btnPdf">Descargar PDF</button>
-          </div>
+      <div id="histGrafico" class="rs" hidden>
+        <div class="rs-top"><button type="button" class="btn primary" id="btnPdf">Descargar PDF</button></div>
+        <h2 class="rs-h1">Resumen de carteleras</h2>
+        <p class="rs-sub" id="rsSub"></p>
+        <div class="rs-months" id="rsMonths" role="group" aria-label="Mes"></div>
+        <div class="rs-bloques" id="rsBloques" role="group" aria-label="Qué cuadros mostrar"></div>
+        <div class="rs-kpis" id="rsKpis" data-bloque="kpis"></div>
+        <section class="rs-card rs-full rs-resumen" data-bloque="resumen"><h3 id="rsSt">Resumen</h3><p class="rs-sum" id="rsSum"></p><button type="button" class="rs-cp" id="rsCp">Copiar resumen</button></section>
+        <div class="rs-grid">
+          <section class="rs-card rs-full" data-bloque="mes"><h3>Piezas por mes</h3><p class="rs-note">Cantidad de piezas según el mes en que empiezan, abiertas por categoría.</p><div class="rs-box rs-tall"><canvas id="c1" role="img" aria-label="Piezas por mes"></canvas></div></section>
+          <section class="rs-card" data-bloque="categoria"><h3>Por categoría</h3><p class="rs-note" id="n2"></p><div class="rs-box"><canvas id="c2" role="img" aria-label="Piezas por categoría"></canvas></div></section>
+          <section class="rs-card" data-bloque="campana"><h3>Por campaña</h3><p class="rs-note" id="n3"></p><div class="rs-box"><canvas id="c3" role="img" aria-label="Piezas por campaña"></canvas></div></section>
+          <section class="rs-card" data-bloque="tiempo"><h3>Cuánto tiempo está cada pieza en pantalla</h3><p class="rs-note">Piezas agrupadas por días de vigencia, abiertas por categoría. Las que no tienen Fecha Hasta van aparte.</p><div class="rs-box"><canvas id="c4" role="img" aria-label="Días de vigencia"></canvas></div></section>
+          <section class="rs-card" data-bloque="carga"><h3>Cuándo se carga cada pieza</h3><p class="rs-note">Días entre la carga y el inicio de la vigencia.</p><div class="rs-box"><canvas id="c5" role="img" aria-label="Cuándo se carga cada pieza"></canvas></div></section>
+          <section class="rs-card rs-full" data-bloque="top"><h3>Las piezas que más tiempo estuvieron en pantalla</h3><p class="rs-note" id="rsHoy"></p>
+            <h4>En pantalla hoy</h4><p class="rs-note">Piezas publicadas que siguen vigentes. Las marcadas con asterisco no tienen Fecha Hasta, así que cuentan desde que empezaron hasta hoy.</p><div class="rs-box" id="box6"><canvas id="c6" role="img" aria-label="Piezas en pantalla hoy"></canvas></div>
+            <h4>Ya bajadas</h4><p class="rs-note">Las 10 con más días entre Fecha Desde y Fecha Hasta. No incluye las bajadas sin Fecha Hasta, que no se pueden medir.</p><div class="rs-box rs-tall"><canvas id="c7" role="img" aria-label="Piezas ya bajadas con más días"></canvas></div></section>
         </div>
-        <p class="hist-count" id="grfTotal" role="status"></p>
-        <div class="graf-box">
-          <canvas id="grfCanvas" role="img" aria-label="Gráfico de barras"></canvas>
-          <p class="hist-empty" id="grfVacio" hidden></p>
-        </div>
+        <p class="rs-note rs-pie" id="rsPie"></p>
+        <p class="hist-empty" id="rsError" hidden></p>
       </div>
     </section>
   </main>
@@ -264,8 +258,8 @@
           <ul>
             <li>En <b>Registro</b> ves todas las comunicaciones en una tabla (submenú <b>Historial</b>) y podés filtrar por categoría, campaña, estado y <b>mes</b> (podés tildar varios meses a la vez).</li>
             <li>Tocá el encabezado de una columna para <b>ordenar</b>; tocá de nuevo para invertir el orden. En el celular se elige desde "Ordenar por".</li>
-            <li>El submenú <b>Gráfico</b> muestra estadísticas en barras verticales: por campaña, por categoría, por mes, por estado, campaña por categoría, subidas a tiempo vs. con atraso y cuánto tiempo estuvo publicada cada una (se puede agrupar). Pasá el mouse (o tocá una barra) para ver el detalle. Tiene su propio filtro de mes.</li>
-            <li><b>Descargar PDF</b> baja el gráfico que estás viendo, con su filtro de mes.</li>
+            <li>El submenú <b>Gráfico</b> es el <b>Resumen de carteleras</b>: cifras clave, un resumen en texto (con botón <b>Copiar resumen</b>) y gráficos de piezas por mes, categoría y campaña, tiempo en pantalla y cuándo se carga cada pieza. Elegí un mes arriba para verlo por mes, y usá los botones con el nombre de cada cuadro para ocultarlo o mostrarlo (<b>Ver todo</b> los muestra a todos). Pasá el mouse (o tocá una barra) para ver el detalle.</li>
+            <li><b>Descargar PDF</b> baja el resumen con los cuadros que estén visibles, para el mes elegido.</li>
             <li><b>Descargar Excel</b> baja solo lo que está filtrado en pantalla, en el mismo orden que ves, con filtros en cada columna.</li>
             <li>Tocá una fila para abrir su detalle.</li>
           </ul>
