@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#E8473A">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Oswald:wght@300;400;600;700&family=Dosis:wght@600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Oswald:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -121,10 +121,15 @@
       </div>
 
       <div id="histGrafico" class="rs" hidden>
-        <div class="rs-top"><button type="button" class="btn primary" id="btnPdf">Descargar PDF</button></div>
         <h2 class="rs-h1">Resumen de carteleras</h2>
         <p class="rs-sub" id="rsSub"></p>
-        <div class="rs-months" id="rsMonths" role="group" aria-label="Mes"></div>
+        <div class="hist-filters rs-toolbar">
+          <label class="hist-filter">
+            <span>Mes</span>
+            <select id="rsMesSel" title="Cambia los datos clave, el resumen y los gráficos de categoría, campaña, tiempo en pantalla y carga"></select>
+          </label>
+          <div class="hist-buttons"><button type="button" class="btn primary" id="btnPdf">Descargar PDF</button></div>
+        </div>
         <div class="rs-bloques" id="rsBloques" role="group" aria-label="Qué cuadros mostrar"></div>
         <div class="rs-kpis" id="rsKpis" data-bloque="kpis"></div>
         <section class="rs-card rs-full rs-resumen" data-bloque="resumen"><h3 id="rsSt">Resumen</h3><p class="rs-sum" id="rsSum"></p><button type="button" class="rs-cp" id="rsCp">Copiar resumen</button></section>
@@ -262,7 +267,7 @@
           <ul>
             <li>En <b>Registro</b> ves todas las comunicaciones en una tabla (submenú <b>Historial</b>) y podés filtrar por categoría, campaña, estado y <b>mes</b> (podés tildar varios meses a la vez).</li>
             <li>Tocá el encabezado de una columna para <b>ordenar</b>; tocá de nuevo para invertir el orden. En el celular se elige desde "Ordenar por".</li>
-            <li>El submenú <b>Gráfico</b> es el <b>Resumen de carteleras</b>: cifras clave, un resumen en texto (con botón <b>Copiar resumen</b>) y gráficos de piezas por mes, categoría y campaña, tiempo en pantalla y cuándo se carga cada pieza. Elegí un mes arriba para verlo por mes, y usá los botones con el nombre de cada cuadro para ocultarlo o mostrarlo (<b>Ver todo</b> los muestra a todos). Pasá el mouse (o tocá una barra) para ver el detalle.</li>
+            <li>El submenú <b>Gráfico</b> es el <b>Resumen de carteleras</b>: cifras clave, un resumen en texto (con botón <b>Copiar resumen</b>) y gráficos de piezas por mes, categoría y campaña, tiempo en pantalla y cuándo se carga cada pieza. Elegí un mes arriba para ver los datos clave, el resumen y los gráficos de categoría, campaña, tiempo en pantalla y carga solo de ese mes (las piezas por mes y los rankings siempre muestran todo), y usá los botones con el nombre de cada cuadro para ocultarlo o mostrarlo (<b>Ver todo</b> los muestra a todos). Pasá el mouse (o tocá una barra) para ver el detalle.</li>
             <li><b>Descargar PDF</b> baja el resumen con los cuadros que estén visibles, para el mes elegido.</li>
             <li><b>Descargar Excel</b> baja solo lo que está filtrado en pantalla, en el mismo orden que ves, con filtros en cada columna.</li>
             <li>Tocá una fila para abrir su detalle.</li>

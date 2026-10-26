@@ -701,7 +701,9 @@ function cargarScript(urls, global) {
 }
 
 // Resumen de carteleras: KPIs, resumen en texto y 7 gráficos, con el mismo diseño del informe de referencia
-const RS_CATS = [["coto", "#A30F0F"], ["mas", "#FFD43D"], ["compromiso", "#800080"], ["familia", "#008000"], ["argentinos", "#58CBFF"], ["innovacion", "#F47B2A"]];
+// Colores de las categorías: los mismos del calendario
+const RS_CATS = Object.entries(CATEGORIAS).map(([k, c]) => [k, c.bg]);
+const RS_ROJO = "#E8473A", RS_ROJO_OSC = "#8c1d14", RS_VERDE = "#1f7a3d", RS_GRIS = "#9aa0a6", RS_GRIS_CLARO = "#cfcfcf";
 const RS_MES = NOMBRES_MES.map((m) => m.toLowerCase());
 const cap = (t) => t[0].toUpperCase() + t.slice(1);
 const rsFd = (iso) => `${Number(iso.slice(8))}/${Number(iso.slice(5, 7))}`;
@@ -761,11 +763,13 @@ async function renderGrafico() {
   $("#rsSub").textContent = meses.length
     ? `${plural(R.length, "pieza", "piezas")} entre ${mes(meses[0])} y ${mes(meses.at(-1))}${variosAnios ? "" : " de " + meses[0].slice(0, 4)}`
     : "Todavía no hay piezas cargadas";
-  $("#rsMonths").replaceChildren(
-    ...[["all", "Todos", R.length], ...meses.map((m) => [m, rsEtiquetaMes(m, variosAnios), R.filter((r) => r.d.slice(0, 7) === m).length])].map(([k, t, c]) =>
-      h("button", { type: "button", class: "rs-m" + (rsSel === k ? " on" : ""), "aria-pressed": String(rsSel === k), onclick: () => { rsSel = k; renderGrafico(); } },
-        t, h("small", { text: `(${c})` })))
+  const selMes = $("#rsMesSel");
+  selMes.replaceChildren(
+    ...[["all", "Todos", R.length], ...meses.map((m) => [m, rsEtiquetaMes(m, variosAnios), R.filter((r) => r.d.slice(0, 7) === m).length])]
+      .map(([k, t, c]) => h("option", { value: k, text: `${t} (${c})` }))
   );
+  selMes.value = rsSel;
+  selMes.onchange = (e) => { rsSel = e.target.value; renderGrafico(); };
 
   // KPIs
   const cc = cats.map(([k]) => s.filter((r) => r.cat === k).length);
@@ -807,7 +811,7 @@ async function renderGrafico() {
   $("#rsHoy").textContent = `Días en pantalla contados hasta hoy, ${rsFd(hoyD)}.`;
   $("#box6").style.height = Math.max(220, cur.length * 26 + 70) + "px";
 
-  const colorCat = (k) => RS_CATS.find(([c]) => c === k)?.[1] ?? "#9aa0a6";
+  const colorCat = (k) => RS_CATS.find(([c]) => c === k)?.[1] ?? RS_GRIS;
   const campanas = ["Central", "Sucursales", "Central / Sucursales"];
   const otras = [...new Set(s.map((r) => r.k))].filter((k) => !campanas.includes(k));
   const lagCont = [Ls.filter((r) => r.l < 0).length, same, Ls.filter((r) => r.l > 0).length, n - Ls.length];
@@ -826,8 +830,8 @@ async function renderGrafico() {
   if ($("#histGrafico").hidden) return;
 
   Chart.defaults.color = "#6b6b6b";
-  Chart.defaults.borderColor = "#e3dede";
-  Chart.defaults.font.family = "Roboto, sans-serif";
+  Chart.defaults.borderColor = "#e2e2e2";
+  Chart.defaults.font.family = "Montserrat, system-ui, sans-serif";
   rsCharts.forEach((c) => c.destroy());
   const bar = (id, data, o) => new Chart($("#" + id), { type: "bar", data, options: { responsive: true, maintainAspectRatio: false, ...o } });
   const noLeg = { legend: { display: false } };
@@ -845,9 +849,9 @@ async function renderGrafico() {
   rsCharts = [
     bar("c1", { labels: meses.map((m) => rsEtiquetaMes(m, variosAnios)), datasets: cats.map(([k, c]) => ({ label: nomCat(k), backgroundColor: c, data: meses.map((m) => R.filter((r) => r.cat === k && r.d.slice(0, 7) === m).length) })) }, { plugins: leyenda, scales: apiladoY }),
     bar("c2", { labels: cats.map(([k]) => nomCat(k)), datasets: [{ data: cc, backgroundColor: cats.map(([, c]) => c) }] }, { indexAxis: "y", plugins: noLeg, scales: { x: ent } }),
-    bar("c3", { labels: ["Central", "Sucursales", "Ambas", ...otras], datasets: [{ data: [...campanas, ...otras].map((k) => s.filter((r) => r.k === k).length), backgroundColor: "#455a64" }] }, { plugins: noLeg, scales: { y: ent } }),
+    bar("c3", { labels: ["Central", "Sucursales", "Ambas", ...otras], datasets: [{ data: [...campanas, ...otras].map((k) => s.filter((r) => r.k === k).length), backgroundColor: RS_ROJO }] }, { plugins: noLeg, scales: { y: ent } }),
     bar("c4", { labels: ["1 día", "2 a 3 días", "4 a 7 días", "8 a 15 días", "Más de 15 días", "Sin Fecha Hasta"], datasets: cats.map(([k, c]) => ({ label: nomCat(k), backgroundColor: c, data: [0, 1, 2, 3, 4, 5].map((b) => s.filter((r) => r.cat === k && rsBucket(r) === b).length) })) }, { plugins: leyenda, scales: apiladoY }),
-    bar("c5", { labels: ["Cargada tarde", "El mismo día", "Con anticipación", "Sin fecha de carga"], datasets: [{ data: lagCont, backgroundColor: ["#A30F0F", "#6b7f8c", "#008000", "#c9c3c3"] }] }, { plugins: noLeg, scales: { y: ent } }),
+    bar("c5", { labels: ["Cargada tarde", "El mismo día", "Con anticipación", "Sin fecha de carga"], datasets: [{ data: lagCont, backgroundColor: [RS_ROJO_OSC, RS_GRIS, RS_VERDE, RS_GRIS_CLARO] }] }, { plugins: noLeg, scales: { y: ent } }),
     bar("c6", c6.data, c6.o),
     bar("c7", c7.data, c7.o),
   ];
@@ -866,7 +870,7 @@ async function descargarPDF() {
     let y = 18;
     const nueva = (necesito) => { if (y + necesito > alto - 12) { doc.addPage(); y = 16; } };
 
-    doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(163, 15, 15);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(232, 71, 58);
     doc.text("Resumen de carteleras", ancho / 2, y, { align: "center" }); y += 7;
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(107, 107, 107);
     doc.text(`${rsPdf.sub} · Generado el ${fmtCorta(hoyISO())}`, ancho / 2, y, { align: "center" }); y += 10;
@@ -874,7 +878,7 @@ async function descargarPDF() {
     doc.setTextColor(34, 34, 34);
     const anchoK = util / rsPdf.kpis.length;
     if (!rsOcultos.has("kpis")) rsPdf.kpis.forEach(([v, t], i) => {
-      doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(163, 15, 15);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(232, 71, 58);
       doc.text(String(v), margen + anchoK * i + anchoK / 2, y, { align: "center", maxWidth: anchoK - 2 });
       doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(107, 107, 107);
       doc.text(t, margen + anchoK * i + anchoK / 2, y + 5, { align: "center", maxWidth: anchoK - 2 });
