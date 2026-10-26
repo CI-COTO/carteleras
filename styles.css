@@ -541,6 +541,35 @@ input[type="date"]:disabled { background: #f3f3f3; color: #9a9a9a; }
   background: #fff;
 }
 .hist-filter select:focus-visible { outline: 3px solid rgba(232, 71, 58, .3); border-color: var(--red); }
+.th-sort {
+  font: inherit; font-weight: inherit; color: inherit;
+  background: none; border: 0; padding: 0;
+  cursor: pointer; white-space: nowrap;
+}
+.th-sort:hover { text-decoration: underline; }
+.th-sort:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.mes-filter { position: relative; }
+.mes-filter summary {
+  list-style: none;
+  font-size: 14px; font-weight: 500; color: var(--ink);
+  padding: 7px 28px 7px 10px;
+  border: 1.5px solid #cfcfcf; border-radius: var(--radius);
+  background: #fff; cursor: pointer; min-width: 120px;
+  position: relative;
+}
+.mes-filter summary::-webkit-details-marker { display: none; }
+.mes-filter summary::after { content: "▾"; position: absolute; right: 10px; color: var(--muted); }
+.mes-filter summary:focus-visible { outline: 3px solid rgba(232,71,58,.3); border-color: var(--red); }
+.mes-panel {
+  position: absolute; z-index: 6; top: calc(100% + 4px); left: 0;
+  min-width: 100%; max-height: 260px; overflow-y: auto;
+  background: #fff; border: 1.5px solid #cfcfcf; border-radius: var(--radius);
+  box-shadow: 0 8px 22px rgba(0,0,0,.18); padding: 6px;
+}
+.mes-opt { display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; cursor: pointer; border-radius: 4px; }
+.mes-opt:hover { background: #f3f3f3; }
+.mes-opt input { width: 16px; height: 16px; accent-color: var(--red); }
+.hist-sort-mobile { display: none; }
 .hist-buttons { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
 .hist-buttons .btn { white-space: nowrap; }
 .btn:disabled { opacity: .55; cursor: default; }
@@ -630,6 +659,7 @@ input[type="date"]:disabled { background: #f3f3f3; color: #9a9a9a; }
   .hist-filter { flex: 1 1 140px; }
   .hist-filter select { min-width: 0; width: 100%; }
   .hist-table thead { display: none; }
+  .hist-sort-mobile { display: flex; }
   .hist-table, .hist-table tbody, .hist-table tr, .hist-table td { display: block; width: 100%; }
   .hist-table tr { border-top: 1px solid #cfcfcf; padding: 8px 4px; }
   .hist-table tr:first-child { border-top: 0; }

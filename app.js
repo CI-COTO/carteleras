@@ -277,7 +277,8 @@ let vista = "calendario"; // "calendario" | "historial"
 let detalleId = null;
 let formModo = "nuevo"; // "nuevo" | "editar"
 let formId = null;
-const filtros = { categoria: "", campana: "", estado: "" };
+const filtros = { categoria: "", campana: "", estado: "", meses: new Set() }; // meses: "AAAA-MM"
+let orden = { col: null, dir: 1 }; // col null = más reciente primero
 
 const itemValido = (i) =>
   i && typeof i.titulo === "string" && typeof i.fecha === "string" && ISO_RE.test(i.fecha);
@@ -564,23 +565,92 @@ function armarFiltros() {
 
   $("#fltLimpiar").addEventListener("click", () => {
     filtros.categoria = filtros.campana = filtros.estado = "";
+    filtros.meses.clear();
     ["#fltCategoria", "#fltCampana", "#fltEstado"].forEach((s) => ($(s).value = ""));
     renderHistorial();
   });
+
+  // Orden: tocar el encabezado ordena; tocar de nuevo invierte
+  document.querySelectorAll(".hist-table th[data-col]").forEach((th) =>
+    th.querySelector("button").addEventListener("click", () => {
+      const col = th.dataset.col;
+      orden = orden.col === col ? { col, dir: -orden.dir } : { col, dir: 1 };
+      renderHistorial();
+    })
+  );
+  // En el celular la tabla no tiene encabezados: se elige desde un desplegable
+  $("#fltOrden").replaceChildren(
+    h("option", { value: "", text: "Más recientes primero" }),
+    ...COLUMNAS_ORDEN.flatMap(([k, t]) => [
+      h("option", { value: `${k}:1`, text: `${t} ↑` }),
+      h("option", { value: `${k}:-1`, text: `${t} ↓` }),
+    ])
+  );
+  $("#fltOrden").addEventListener("change", (e) => {
+    const [col, dir] = e.target.value.split(":");
+    orden = col ? { col, dir: Number(dir) } : { col: null, dir: 1 };
+    renderHistorial();
+  });
+  // El panel de meses se cierra al hacer clic afuera
+  document.addEventListener("click", (e) => { if (!e.target.closest("#fltMes")) $("#fltMes").open = false; });
   $("#btnExcel").addEventListener("click", descargarExcel);
 }
 
-// Las filas que se ven (y que baja el Excel): todas las comunicaciones, filtradas y de la más reciente a la más vieja.
+const COLUMNAS_ORDEN = [
+  ["categoria", "Categoría"], ["campana", "Campaña"], ["archivo", "Nombre de archivo"],
+  ["desde", "Fecha Desde"], ["hasta", "Fecha Hasta"], ["mes", "Mes"], ["estado", "Estado"],
+];
+const mesDe = (i) => i.fecha.slice(0, 7);
+const claveArchivo = (i) => nombreArchivo(i) || i.titulo;
+// Valor por el que ordena cada columna (las fechas por fecha real, no por texto)
+const VALOR_ORDEN = {
+  categoria: (i) => catDe(i).label,
+  campana: (i) => textoCarteleras(i),
+  archivo: claveArchivo,
+  desde: (i) => i.fecha,
+  hasta: (i) => fechaHastaDe(i),
+  mes: mesDe,
+  estado: (i) => ESTADOS.indexOf(estadoDe(i)),
+};
+const comparar = (a, b) => (typeof a === "number" ? a - b : a.localeCompare(b, "es", { numeric: true }));
+
+// Las filas que se ven (y que baja el Excel): filtradas y en el orden elegido (por defecto, la más reciente primero).
 function itemsFiltrados() {
+  const porDefecto = (a, b) => b.fecha.localeCompare(a.fecha) || claveArchivo(a).localeCompare(claveArchivo(b), "es");
   return items
     .filter(itemValido)
     .filter((i) => !filtros.categoria || i.categoria === filtros.categoria)
     .filter((i) => !filtros.campana || cartelerasDe(i).includes(filtros.campana))
     .filter((i) => !filtros.estado || estadoDe(i) === filtros.estado)
-    .sort((a, b) =>
-      b.fecha.localeCompare(a.fecha) ||
-      (nombreArchivo(a) || a.titulo).localeCompare(nombreArchivo(b) || b.titulo, "es")
-    );
+    .filter((i) => !filtros.meses.size || filtros.meses.has(mesDe(i)))
+    .sort((a, b) => {
+      if (!orden.col) return porDefecto(a, b);
+      const va = VALOR_ORDEN[orden.col](a), vb = VALOR_ORDEN[orden.col](b);
+      // Las filas sin dato (por ejemplo sin fecha hasta) van siempre al final
+      if (va === "" && vb !== "") return 1;
+      if (vb === "" && va !== "") return -1;
+      return orden.dir * comparar(va, vb) || porDefecto(a, b);
+    });
+}
+
+// Meses (con año) que tienen comunicaciones, del más reciente al más viejo
+function renderFiltroMes() {
+  const meses = [...new Set(items.filter(itemValido).map(mesDe))].sort().reverse();
+  const nombre = (m) => `${NOMBRES_MES[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}`;
+  // Si un mes elegido ya no tiene comunicaciones, se descarta
+  [...filtros.meses].forEach((m) => { if (!meses.includes(m)) filtros.meses.delete(m); });
+  $("#fltMesPanel").replaceChildren(
+    ...meses.map((m) =>
+      h("label", { class: "mes-opt" },
+        h("input", {
+          type: "checkbox", value: m, checked: filtros.meses.has(m),
+          onchange: (e) => { e.target.checked ? filtros.meses.add(m) : filtros.meses.delete(m); renderHistorial(); },
+        }),
+        nombre(m))
+    )
+  );
+  const sel = [...filtros.meses].sort().reverse();
+  $("#fltMesResumen").textContent = !sel.length ? "Todos" : sel.length <= 2 ? sel.map(nombre).join(", ") : `${sel.length} meses`;
 }
 
 const slugEstado = (e) => e.toLowerCase();
@@ -619,6 +689,13 @@ function crearFila(i) {
 }
 
 function renderHistorial() {
+  renderFiltroMes();
+  document.querySelectorAll(".hist-table th[data-col]").forEach((th) => {
+    const activa = th.dataset.col === orden.col;
+    th.setAttribute("aria-sort", activa ? (orden.dir === 1 ? "ascending" : "descending") : "none");
+    th.querySelector(".th-flecha").textContent = activa ? (orden.dir === 1 ? " ▲" : " ▼") : "";
+  });
+  $("#fltOrden").value = orden.col ? `${orden.col}:${orden.dir}` : "";
   const total = items.filter(itemValido).length;
   const lista = itemsFiltrados();
 
