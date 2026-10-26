@@ -12,7 +12,8 @@ rules_version = '2';
 //   fechaHasta               hasta cuándo tiene que estar publicada (texto AAAA-MM-DD o null)
 // "completa" / "completadaEl" es la etapa "Subida". Las etapas van en orden:
 // no puede estar publicada sin subida, ni bajada sin publicada.
-// Rango de fechas permitido: octubre de 2026 a diciembre de 2027.
+// Rango de fechas permitido: enero de 2026 a diciembre de 2027 (2026 completo por la planilla anterior;
+// el calendario de la página arranca en octubre de 2026).
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -35,7 +36,7 @@ service cloud.firestore {
         && d.carteleras.size() >= 1
         && d.carteleras.size() <= 3
         && d.fecha is string
-        && d.fecha.matches('^(2026-(10|11|12)|2027-(0[1-9]|1[0-2]))-[0-3][0-9]$')
+        && d.fecha.matches('^(2026|2027)-(0[1-9]|1[0-2])-[0-3][0-9]$')
         && d.completa is bool
         && (d.completadaEl == null || d.completadaEl is string)
         && d.get('archivo', '') is string

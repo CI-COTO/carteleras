@@ -13,7 +13,7 @@ Datos compartidos en Firebase (Firestore). Un recordatorio por Teams corre en Gi
 ## Archivos
 - `index.html`, `styles.css`, `app.js`: la página (vistas Calendario e Historial, formulario, detalle con etapas).
 - `firestore.rules`: copia de las reglas de Firestore que están publicadas. Es la fuente de verdad: cualquier cambio de campos, etapas o rango de fechas en `app.js` se refleja acá, y después hay que pegarlas y **Publicar** a mano en Firebase → Firestore Database → Reglas (Claude no puede publicarlas). Al cambiar algo, avisar siempre al usuario que debe publicarlas.
-  La regla de fecha es un regex (`d.fecha.matches(...)`) que hoy acepta 2026-10 a 2027-12; al extender el rango hay que tocarlo ahí, en `app.js` (`MESES`, `FECHA_MIN/MAX`), en `index.html` (min/max) y en los feriados del script.
+  La regla de fecha es un regex (`d.fecha.matches(...)`) que hoy acepta 2026-01 a 2027-12 (el calendario de la página arranca en octubre de 2026; lo anterior viene de la planilla vieja y se ve en Historial/Activas); al extender el rango hay que tocarlo ahí, en `app.js` (`MESES`, `FECHA_MIN/MAX`), en `index.html` (min/max) y en los feriados del script.
 - `recordatorios/enviar-recordatorio.mjs`: lee Firestore por REST y manda una tarjeta adaptable a Teams. Node 20+, sin dependencias.
 - `.github/workflows/recordatorios-teams.yml`: cron de lunes a viernes 7:10 (hora Argentina); el script decide si toca enviar.
 - `recordatorios/LEEME.md`: guía de configuración (Workflow de Teams, secrets y variables de GitHub, pruebas).
@@ -29,7 +29,7 @@ El campo `vigencia` (estatica, dias, mensual, quincenal) ya no se usa ni se mues
 
 ## Reglas de negocio
 - Solo **Subida** genera el cartel PENDIENTE (internamente `estaAtrasada`) y los avisos de Teams. Publicada y Bajada son solo seguimiento.
-- Rango de fechas: octubre de 2026 a diciembre de 2027 (en `app.js`, `index.html`, `firestore.rules` y la lista de feriados del script). Los no laborables turísticos de 2027 se suman cuando se publiquen.
+- Rango de fechas: calendario de octubre de 2026 a diciembre de 2027; las fechas válidas arrancan en enero de 2026 (en `app.js`, `index.html`, `firestore.rules` y la lista de feriados del script). Los no laborables turísticos de 2027 se suman cuando se publiquen.
 - Feriados fijos en `app.js` (`FERIADOS`) y copia en `enviar-recordatorio.mjs`: si cambian, actualizar los dos.
 - Alerta de Teams: lunes y miércoles; si caen en feriado/no laborable, el siguiente día hábil; sábados y domingos nunca.
   Avisa atrasadas, las de hoy y las de los próximos 7 días corridos (`DIAS_AVISO`). Si no hay nada pendiente, no envía.
