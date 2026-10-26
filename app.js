@@ -18,6 +18,14 @@ const firebaseConfig = {
 
 const FIREBASE_VERSION = "10.12.2";
 const COLLECTION = "comunicaciones";
+const CHARTJS_URLS = [
+  "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js",
+  "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js",
+];
+const JSPDF_URLS = [
+  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+  "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+];
 const EXCELJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
 
 /* ---------- Datos fijos ---------- */
@@ -279,7 +287,9 @@ let formModo = "nuevo"; // "nuevo" | "editar"
 let formId = null;
 const filtros = { categoria: "", campana: "", estado: "", meses: new Set() }; // meses: "AAAA-MM"
 let subHist = "tabla"; // "tabla" | "grafico"
-let grafPor = "campana"; // "campana" | "categoria"
+let grafTipo = "campana";
+let grafAgrup = "categoria"; // solo para "tiempo"
+let grafChart = null;
 const mesesGraf = new Set(); // filtro de mes propio del gráfico
 let orden = { col: null, dir: 1 }; // col null = más reciente primero
 
@@ -604,8 +614,11 @@ function armarFiltros() {
     document.querySelectorAll(".mes-details").forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
   $("#btnSubTabla").addEventListener("click", () => { subHist = "tabla"; render(); });
   $("#btnSubGrafico").addEventListener("click", () => { subHist = "grafico"; render(); });
-  $("#btnGrafCamp").addEventListener("click", () => { grafPor = "campana"; renderGrafico(); });
-  $("#btnGrafCat").addEventListener("click", () => { grafPor = "categoria"; renderGrafico(); });
+  $("#grfTipo").replaceChildren(...Object.entries(GRAFICOS).map(([k, g]) => h("option", { value: k, text: g.nombre })));
+  $("#grfAgrup").replaceChildren(...Object.entries(AGRUPACIONES).map(([k, t]) => h("option", { value: k, text: t })));
+  $("#grfTipo").addEventListener("change", (e) => { grafTipo = e.target.value; renderGrafico(); });
+  $("#grfAgrup").addEventListener("change", (e) => { grafAgrup = e.target.value; renderGrafico(); });
+  $("#btnPdf").addEventListener("click", descargarPDF);
   $("#btnExcel").addEventListener("click", descargarExcel);
 }
 
@@ -676,35 +689,233 @@ function renderFiltroMes() {
 
 /* ---------- Gráfico ---------- */
 
-// Barras horizontales (HTML puro) con la cantidad de publicaciones ya subidas
-function renderGrafico() {
-  const subidas = items.filter(itemValido).filter((i) => i.completa);
+function cargarScript(urls, global) {
+  if (window[global]) return Promise.resolve(window[global]);
+  const probar = (i) =>
+    new Promise((resolve, reject) => {
+      const sc = document.createElement("script");
+      sc.src = urls[i];
+      sc.async = true;
+      sc.onload = () => (window[global] ? resolve(window[global]) : reject(new Error(`${global} no se inicializó`)));
+      sc.onerror = () => reject(new Error(`No se pudo cargar ${urls[i]}`));
+      document.head.append(sc);
+    }).catch((err) => { if (i + 1 < urls.length) return probar(i + 1); throw err; });
+  return probar(0);
+}
+
+const AGRUPACIONES = { categoria: "Categoría", campana: "Campaña", mes: "Mes" };
+const PALETA = ["#E8473A", "#5BC0E3", "#4FA83F", "#F47B2A", "#6B4A8A", "#FDD835", "#8d8d8d", "#2b2b2b"];
+const MES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+const etiquetaMes = (m) => `${MES_CORTO[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}`;
+const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0);
+const textoPub = (n) => plural(n, "publicación", "publicaciones");
+
+// Cada gráfico arma sus datos: { labels, datasets, base, nota?, ejeY, tooltip? }
+const GRAFICOS = {
+  campana: {
+    nombre: "Por campaña", base: "subidas",
+    datos: (lista) => ({
+      labels: Object.values(CARTELERAS),
+      datasets: [{ label: "Publicaciones", backgroundColor: "#E8473A",
+        data: Object.keys(CARTELERAS).map((k) => lista.filter((i) => cartelerasDe(i).includes(k)).length) }],
+      nota: "una publicación en varias campañas cuenta en cada una",
+    }),
+  },
+  categoria: {
+    nombre: "Por categoría", base: "subidas",
+    datos: (lista) => ({
+      labels: Object.values(CATEGORIAS).map((c) => c.label),
+      datasets: [{ label: "Publicaciones", backgroundColor: Object.values(CATEGORIAS).map((c) => c.bg),
+        data: Object.keys(CATEGORIAS).map((k) => lista.filter((i) => i.categoria === k).length) }],
+    }),
+  },
+  mes: {
+    nombre: "Por mes", base: "subidas",
+    datos: (lista) => {
+      const meses = [...new Set(lista.map(mesDe))].sort();
+      return {
+        labels: meses.map(etiquetaMes),
+        datasets: [{ label: "Publicaciones", backgroundColor: "#E8473A", data: meses.map((m) => lista.filter((i) => mesDe(i) === m).length) }],
+      };
+    },
+  },
+  estado: {
+    nombre: "Por estado", base: "todas",
+    datos: (lista) => ({
+      labels: ESTADOS,
+      datasets: [{ label: "Publicaciones", backgroundColor: ["#9aa0a6", "#5BC0E3", "#4FA83F", "#2b2b2b"],
+        data: ESTADOS.map((e) => lista.filter((i) => estadoDe(i) === e).length) }],
+    }),
+  },
+  campcat: {
+    nombre: "Campaña por categoría", base: "subidas",
+    datos: (lista) => ({
+      labels: Object.values(CARTELERAS),
+      datasets: Object.entries(CATEGORIAS)
+        .map(([k, c]) => ({ label: c.label, backgroundColor: c.bg,
+          data: Object.keys(CARTELERAS).map((cp) => lista.filter((i) => i.categoria === k && cartelerasDe(i).includes(cp)).length) }))
+        .filter((d) => d.data.some((n) => n > 0)),
+      nota: "una publicación en varias campañas cuenta en cada una",
+    }),
+  },
+  atiempo: {
+    nombre: "Subidas a tiempo vs. con atraso", base: "subidas",
+    datos: (lista) => {
+      const conFecha = lista.filter((i) => ISO_RE.test(i.completadaEl ?? ""));
+      const aTiempo = conFecha.filter((i) => i.completadaEl <= i.fecha).length;
+      return {
+        labels: ["A tiempo", "Con atraso", "Sin fecha de subida"],
+        datasets: [{ label: "Publicaciones", backgroundColor: ["#4FA83F", "#8c1d14", "#9aa0a6"],
+          data: [aTiempo, conFecha.length - aTiempo, lista.length - conFecha.length] }],
+        nota: "a tiempo = subida en o antes de la fecha de subida",
+      };
+    },
+  },
+  tiempo: {
+    nombre: "Tiempo publicada", base: "tiempo", ejeY: "Días publicada",
+    datos: (lista) => {
+      const clave = { categoria: (i) => catDe(i).label, campana: (i) => textoCarteleras(i) || "Sin campaña", mes: (i) => etiquetaMes(mesDe(i)) }[grafAgrup];
+      const orden = (i) => (grafAgrup === "mes" ? mesDe(i) : clave(i));
+      const filas = lista.slice().sort((a, b) => orden(a).localeCompare(orden(b), "es") || a.fecha.localeCompare(b.fecha));
+      const grupos = [...new Set(filas.map(clave))];
+      const color = (g) => (grafAgrup === "categoria"
+        ? Object.values(CATEGORIAS).find((c) => c.label === g)?.bg ?? "#9aa0a6"
+        : PALETA[grupos.indexOf(g) % PALETA.length]);
+      return {
+        labels: filas.map(claveArchivo),
+        // Un dataset por grupo, superpuestos: cada etiqueta tiene una sola barra y la leyenda muestra los grupos
+        datasets: grupos.map((g) => ({
+          label: g, backgroundColor: color(g), grouped: false,
+          data: filas.map((i) => (clave(i) === g ? diffDias(i.bajadaEl, i.publicadaEl) : null)),
+        })),
+        filas,
+      };
+    },
+  },
+};
+
+// Las que se suben a la base con fechas reales de publicación y bajada
+const conTiempoReal = (i) => i.bajada && ISO_RE.test(i.publicadaEl ?? "") && ISO_RE.test(i.bajadaEl ?? "");
+
+function baseGrafico(tipo) {
+  const validas = items.filter(itemValido);
+  return tipo === "todas" ? validas : tipo === "tiempo" ? validas.filter(conTiempoReal) : validas.filter((i) => i.completa);
+}
+
+let ultimoGrafico = null; // lo que se ve, para el PDF
+
+async function renderGrafico() {
+  const g = GRAFICOS[grafTipo];
+  $("#grfTipo").value = grafTipo;
+  $("#grfAgrupCampo").hidden = grafTipo !== "tiempo";
+  $("#grfAgrup").value = grafAgrup;
+
   pintarFiltroMes({
-    lista: subidas, seleccion: mesesGraf,
+    lista: items.filter(itemValido), seleccion: mesesGraf,
     panel: "#grfMesPanel", resumen: "#grfMesResumen", alCambiar: renderGrafico,
   });
-  const lista = subidas.filter((i) => !mesesGraf.size || mesesGraf.has(mesDe(i)));
+  const lista = baseGrafico(g.base).filter((i) => !mesesGraf.size || mesesGraf.has(mesDe(i)));
+  const sujeto = { subidas: ["publicación subida", "publicaciones subidas"], todas: ["publicación", "publicaciones"], tiempo: ["publicación con fechas de publicación y bajada", "publicaciones con fechas de publicación y bajada"] }[g.base];
+  const datos = lista.length ? g.datos(lista) : null;
+  const total = plural(lista.length, ...sujeto) + (datos?.nota ? ` · ${datos.nota}` : "");
+  $("#grfTotal").textContent = total;
 
-  const porCamp = grafPor === "campana";
-  const filas = porCamp
-    ? Object.entries(CARTELERAS).map(([k, label]) => ({ label, color: "var(--red)", n: lista.filter((i) => cartelerasDe(i).includes(k)).length }))
-    : Object.entries(CATEGORIAS).map(([k, c]) => ({ label: c.label, color: c.bg, n: lista.filter((i) => i.categoria === k).length }));
-  const max = Math.max(1, ...filas.map((f) => f.n));
+  const vacio = $("#grfVacio");
+  vacio.hidden = !!lista.length;
+  $("#grfCanvas").hidden = !lista.length;
+  vacio.textContent = g.base === "tiempo"
+    ? "Todavía no hay publicaciones bajadas con fecha de publicación y de bajada. Las cargadas desde la planilla anterior no tienen esas fechas."
+    : "No hay publicaciones para los meses elegidos.";
+  if (grafChart) { grafChart.destroy(); grafChart = null; }
+  ultimoGrafico = null;
+  if (!lista.length) return;
 
-  $("#btnGrafCamp").setAttribute("aria-pressed", String(porCamp));
-  $("#btnGrafCat").setAttribute("aria-pressed", String(!porCamp));
-  $("#grfTotal").textContent = plural(lista.length, "publicación subida", "publicaciones subidas") +
-    (porCamp ? " · una publicación en varias campañas cuenta en cada una" : "");
-  $("#grfBars").replaceChildren(
-    ...(lista.length
-      ? filas.map((f) =>
-          h("div", { class: "graf-row" },
-            h("span", { class: "graf-label", text: f.label }),
-            h("span", { class: "graf-track", role: "img", "aria-label": `${f.label}: ${f.n}` },
-              h("span", { class: "graf-fill", style: `width:${(f.n / max) * 100}%;background:${f.color}` })),
-            h("span", { class: "graf-num", text: f.n })))
-      : [h("p", { class: "hist-empty", text: "No hay publicaciones subidas en estos meses." })])
-  );
+  let Chart;
+  try {
+    Chart = await cargarScript(CHARTJS_URLS, "Chart");
+  } catch (err) {
+    console.error(err);
+    $("#grfCanvas").hidden = true;
+    vacio.hidden = false;
+    vacio.textContent = "No se pudo cargar la librería de gráficos. Revisá la conexión y recargá la página.";
+    return;
+  }
+  // Si mientras cargaba se cambió de gráfico, no pisamos el nuevo
+  if (g !== GRAFICOS[grafTipo] || $("#histGrafico").hidden) return;
+
+  const multi = datos.datasets.length > 1;
+  const totalDatos = datos.datasets.reduce((n, d) => n + d.data.reduce((a, b) => a + (b || 0), 0), 0);
+  grafChart = new Chart($("#grfCanvas"), {
+    type: "bar",
+    data: { labels: datos.labels, datasets: datos.datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 500 },
+      datasets: { bar: { maxBarThickness: 80 } },
+      interaction: { mode: "nearest", intersect: true },
+      plugins: {
+        legend: { display: multi, position: "bottom" },
+        tooltip: {
+          callbacks: grafTipo === "tiempo"
+            ? {
+                title: (it) => datos.filas[it[0].dataIndex] && claveArchivo(datos.filas[it[0].dataIndex]),
+                label: (it) => {
+                  const i = datos.filas[it.dataIndex];
+                  return [`${it.dataset.label}`, `Publicada: ${fmtCorta(i.publicadaEl)}`, `Bajada: ${fmtCorta(i.bajadaEl)}`, `${plural(it.parsed.y, "día", "días")} publicada`];
+                },
+              }
+            : {
+                label: (it) => `${it.dataset.label}: ${textoPub(it.parsed.y)}${multi ? "" : ` (${pct(it.parsed.y, totalDatos)}% del total)`}`,
+              },
+        },
+      },
+      scales: {
+        x: { title: { display: true, text: { campana: "Campaña", categoria: "Categoría", mes: "Mes", estado: "Estado", campcat: "Campaña", atiempo: "Subida", tiempo: "Publicación" }[grafTipo] }, grid: { display: false },
+             ticks: { autoSkip: false, maxRotation: grafTipo === "tiempo" ? 60 : 0, minRotation: grafTipo === "tiempo" ? 45 : 0 } },
+        y: { beginAtZero: true, title: { display: true, text: g.ejeY ?? "Publicaciones" }, ticks: { precision: 0 } },
+      },
+    },
+  });
+  ultimoGrafico = { nombre: g.nombre + (grafTipo === "tiempo" ? ` (agrupado por ${AGRUPACIONES[grafAgrup].toLowerCase()})` : ""), total };
+}
+
+async function descargarPDF() {
+  if (!grafChart || !ultimoGrafico) return toast("No hay un gráfico para descargar.");
+  const btn = $("#btnPdf");
+  btn.disabled = true;
+  try {
+    const { jsPDF } = await cargarScript(JSPDF_URLS, "jspdf");
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const ancho = doc.internal.pageSize.getWidth();
+    const alto = doc.internal.pageSize.getHeight();
+    const meses = mesesGraf.size ? [...mesesGraf].sort().map(nombreMes).join(", ") : "todos los meses";
+
+    doc.setTextColor(207, 31, 27);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.text("Planificación Carteleras Digitales", ancho / 2, 16, { align: "center" });
+    doc.setTextColor(43, 43, 43);
+    doc.setFontSize(14);
+    doc.text(ultimoGrafico.nombre, ancho / 2, 25, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`${ultimoGrafico.total}`, ancho / 2, 31, { align: "center" });
+    doc.text(`Meses: ${meses} · Generado el ${fmtCorta(hoyISO())}`, ancho / 2, 36, { align: "center" });
+
+    // La imagen conserva la proporción del gráfico y se ajusta a lo que queda de la hoja
+    const cv = $("#grfCanvas");
+    const maxW = ancho - 20, maxH = alto - 48;
+    const esc = Math.min(maxW / cv.width, maxH / cv.height);
+    const w = cv.width * esc, hh = cv.height * esc;
+    doc.addImage(grafChart.toBase64Image("image/png", 1), "PNG", (ancho - w) / 2, 42, w, hh);
+    doc.save(`grafico-${grafTipo}-${hoyISO()}.pdf`);
+    toast("PDF descargado");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo armar el PDF. Revisá la conexión e intentá de nuevo.");
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 const slugEstado = (e) => e.toLowerCase();
