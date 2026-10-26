@@ -56,7 +56,7 @@ const MESES = Array.from({ length: 15 }, (_, i) => {
   const n = 9 + i;
   return { year: 2026 + Math.floor(n / 12), month: n % 12, name: NOMBRES_MES[n % 12] };
 });
-const FECHA_MIN = "2026-10-01";
+const FECHA_MIN = "2026-01-01"; // el calendario arranca en octubre, pero hay historial anterior importado
 const FECHA_MAX = "2027-12-31";
 
 // Feriados y días no laborables (Argentina, 2026). Fijos: no se editan.
@@ -1044,7 +1044,7 @@ async function guardarForm(ev) {
   if (!titulo) return mostrarError("Escribí un título para la comunicación.");
   if (!archivo) return mostrarError("Escribí el nombre de archivo (sin extensión).");
   if (!fecha) return mostrarError("Elegí la fecha de subida.");
-  if (fecha < FECHA_MIN || fecha > FECHA_MAX) return mostrarError("La fecha tiene que estar entre octubre de 2026 y diciembre de 2027.");
+  if (fecha < FECHA_MIN || fecha > FECHA_MAX) return mostrarError("La fecha tiene que estar entre enero de 2026 y diciembre de 2027.");
   if (!fechaHasta && !$("#fSinHasta").checked) return mostrarError("Elegí hasta qué fecha tiene que estar la cartelera, o tildá \"Sin fecha límite\".");
   if (fechaHasta && fechaHasta < fecha) return mostrarError("La fecha hasta no puede ser anterior a la fecha de subida.");
   if (!categoria) return mostrarError("Elegí una categoría.");
