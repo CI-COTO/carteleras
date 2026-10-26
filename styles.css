@@ -546,6 +546,8 @@ input[type="date"]:disabled { background: #f3f3f3; color: #9a9a9a; }
   background: none; border: 0; padding: 0;
   cursor: pointer; white-space: nowrap;
 }
+.th-flecha { margin-left: 6px; opacity: .6; }
+th[aria-sort="ascending"] .th-flecha, th[aria-sort="descending"] .th-flecha { opacity: 1; }
 .th-sort:hover { text-decoration: underline; }
 .th-sort:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .mes-filter { position: relative; }
