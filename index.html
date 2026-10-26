@@ -73,6 +73,17 @@
           <span>Estado</span>
           <select id="fltEstado"></select>
         </label>
+        <div class="hist-filter mes-filter" id="fltMesWrap">
+          <span id="fltMesLabel">Mes</span>
+          <details id="fltMes">
+            <summary aria-labelledby="fltMesLabel fltMesResumen"><span id="fltMesResumen">Todos</span></summary>
+            <div class="mes-panel" id="fltMesPanel"></div>
+          </details>
+        </div>
+        <label class="hist-filter hist-sort-mobile">
+          <span>Ordenar por</span>
+          <select id="fltOrden"></select>
+        </label>
         <div class="hist-buttons">
           <button type="button" class="btn ghost" id="fltLimpiar">Limpiar filtros</button>
           <button type="button" class="btn primary" id="btnExcel">Descargar Excel</button>
@@ -85,13 +96,13 @@
         <table class="hist-table">
           <thead>
             <tr>
-              <th scope="col">Categoría</th>
-              <th scope="col">Campaña</th>
-              <th scope="col">Nombre de archivo</th>
-              <th scope="col">Fecha Desde</th>
-              <th scope="col">Fecha Hasta</th>
-              <th scope="col">Mes</th>
-              <th scope="col">Estado</th>
+              <th scope="col" data-col="categoria" aria-sort="none"><button type="button" class="th-sort">Categoría<span class="th-flecha" aria-hidden="true"></span></button></th>
+              <th scope="col" data-col="campana" aria-sort="none"><button type="button" class="th-sort">Campaña<span class="th-flecha" aria-hidden="true"></span></button></th>
+              <th scope="col" data-col="archivo" aria-sort="none"><button type="button" class="th-sort">Nombre de archivo<span class="th-flecha" aria-hidden="true"></span></button></th>
+              <th scope="col" data-col="desde" aria-sort="none"><button type="button" class="th-sort">Fecha Desde<span class="th-flecha" aria-hidden="true"></span></button></th>
+              <th scope="col" data-col="hasta" aria-sort="none"><button type="button" class="th-sort">Fecha Hasta<span class="th-flecha" aria-hidden="true"></span></button></th>
+              <th scope="col" data-col="mes" aria-sort="none"><button type="button" class="th-sort">Mes<span class="th-flecha" aria-hidden="true"></span></button></th>
+              <th scope="col" data-col="estado" aria-sort="none"><button type="button" class="th-sort">Estado<span class="th-flecha" aria-hidden="true"></span></button></th>
             </tr>
           </thead>
           <tbody id="histBody"></tbody>
@@ -216,8 +227,9 @@
         <details>
           <summary>6. Historial y Excel</summary>
           <ul>
-            <li>En <b>Historial</b> ves todas las comunicaciones en una tabla y podés filtrar por categoría, campaña y estado.</li>
-            <li><b>Descargar Excel</b> baja solo lo que está filtrado en pantalla, con filtros en cada columna.</li>
+            <li>En <b>Historial</b> ves todas las comunicaciones en una tabla y podés filtrar por categoría, campaña, estado y <b>mes</b> (podés tildar varios meses a la vez).</li>
+            <li>Tocá el encabezado de una columna para <b>ordenar</b>; tocá de nuevo para invertir el orden. En el celular se elige desde "Ordenar por".</li>
+            <li><b>Descargar Excel</b> baja solo lo que está filtrado en pantalla, en el mismo orden que ves, con filtros en cada columna.</li>
             <li>Tocá una fila para abrir su detalle.</li>
           </ul>
         </details>
