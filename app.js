@@ -290,6 +290,8 @@ let subHist = "tabla"; // "tabla" | "grafico"
 let rsSel = "all"; // mes elegido en el Gráfico: "all" o "AAAA-MM"
 let rsCharts = []; // gráficos de Chart.js activos
 let rsPdf = null; // lo que se ve, para el PDF
+const rsOcultos = new Set(); // cuadros ocultos del Gráfico (por defecto se ven todos)
+const RS_BLOQUES = [["kpis", "Datos clave"], ["resumen", "Resumen"], ["mes", "Piezas por mes"], ["categoria", "Por categoría"], ["campana", "Por campaña"], ["tiempo", "Tiempo en pantalla"], ["carga", "Cuándo se carga"], ["top", "Más tiempo en pantalla"]];
 let orden = { col: null, dir: 1 }; // col null = más reciente primero
 
 const itemValido = (i) =>
@@ -730,7 +732,20 @@ function rsEtiquetaMes(m, variosAnios) {
   return variosAnios ? `${t} ${m.slice(0, 4)}` : t;
 }
 
+// Muestra u oculta cada cuadro según los botones, y marca el estado de cada botón
+function rsAplicarBloques() {
+  RS_BLOQUES.forEach(([k]) => { const el = document.querySelector(`#histGrafico [data-bloque="${k}"]`); if (el) el.hidden = rsOcultos.has(k); });
+  $("#rsBloques").replaceChildren(
+    ...RS_BLOQUES.map(([k, t]) =>
+      h("button", { type: "button", class: "rs-m" + (rsOcultos.has(k) ? "" : " on"), "aria-pressed": String(!rsOcultos.has(k)),
+        title: rsOcultos.has(k) ? `Mostrar: ${t}` : `Ocultar: ${t}`,
+        onclick: () => { rsOcultos.has(k) ? rsOcultos.delete(k) : rsOcultos.add(k); rsAplicarBloques(); } }, t)),
+    h("button", { type: "button", class: "rs-cp", disabled: !rsOcultos.size, onclick: () => { rsOcultos.clear(); rsAplicarBloques(); }, text: "Ver todo" })
+  );
+}
+
 async function renderGrafico() {
+  rsAplicarBloques();
   const R = rsRegistros();
   const meses = [...new Set(R.map((r) => r.d.slice(0, 7)))].sort();
   if (rsSel !== "all" && !meses.includes(rsSel)) rsSel = "all";
@@ -858,24 +873,27 @@ async function descargarPDF() {
 
     doc.setTextColor(34, 34, 34);
     const anchoK = util / rsPdf.kpis.length;
-    rsPdf.kpis.forEach(([v, t], i) => {
+    if (!rsOcultos.has("kpis")) rsPdf.kpis.forEach(([v, t], i) => {
       doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(163, 15, 15);
       doc.text(String(v), margen + anchoK * i + anchoK / 2, y, { align: "center", maxWidth: anchoK - 2 });
       doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(107, 107, 107);
       doc.text(t, margen + anchoK * i + anchoK / 2, y + 5, { align: "center", maxWidth: anchoK - 2 });
     });
-    y += 14;
+    if (!rsOcultos.has("kpis")) y += 14;
 
-    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(34, 34, 34);
-    doc.text(cap(rsPdf.titulo), margen, y); y += 5;
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10);
-    const lineas = doc.splitTextToSize(rsPdf.t, util);
-    doc.text(lineas, margen, y); y += lineas.length * 4.6 + 6;
+    if (!rsOcultos.has("resumen")) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(34, 34, 34);
+      doc.text(cap(rsPdf.titulo), margen, y); y += 5;
+      doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+      const lineas = doc.splitTextToSize(rsPdf.t, util);
+      doc.text(lineas, margen, y); y += lineas.length * 4.6 + 6;
+    }
 
     // Cada gráfico con su título y su nota
     const cards = [...document.querySelectorAll("#histGrafico .rs-grid canvas")];
     for (const cv of cards) {
       const box = cv.closest(".rs-box");
+      if (cv.closest("[data-bloque]").hidden) continue; // cuadro oculto: no va al PDF
       const tit = box.previousElementSibling.tagName === "P" ? box.previousElementSibling.previousElementSibling : box.previousElementSibling;
       const nota = box.previousElementSibling.tagName === "P" ? box.previousElementSibling.textContent : "";
       const chart = rsCharts.find((c) => c.canvas === cv);

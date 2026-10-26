@@ -570,6 +570,10 @@ input[type="date"]:disabled { background: #f3f3f3; color: #9a9a9a; }
 .rs-m.on { background: var(--rs-red); border-color: var(--rs-red); color: #fff; }
 .rs-m.on small { color: #ffffffcc; }
 .rs-m:focus-visible, .rs-cp:focus-visible { outline: 3px solid rgba(163,15,15,.35); outline-offset: 2px; }
+.rs-bloques { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin-bottom: 16px; }
+.rs-bloques .rs-m { font-size: 13px; padding: 5px 14px; }
+.rs-bloques .rs-cp:disabled { opacity: .45; cursor: default; }
+.rs-grid { grid-auto-flow: dense; }
 .rs-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .rs-kpi, .rs-card { background: var(--rs-card); border-radius: 12px; padding: 16px; }
 .rs-kpi b { display: block; font: 700 28px/1.15 Dosis, sans-serif; color: var(--rs-red); }
@@ -736,3 +740,4 @@ th[aria-sort="ascending"] .th-flecha, th[aria-sort="descending"] .th-flecha { op
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+.rs [hidden] { display: none !important; }
