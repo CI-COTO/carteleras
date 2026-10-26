@@ -313,7 +313,7 @@ function cambiarVista(v) {
 const TITULOS_VISTA = {
   calendario: "CALENDARIZACIÓN CARTELERAS DIGITALES",
   activas: "CARTELERAS ACTIVAS",
-  historial: "HISTORIAL DE CARTELERAS",
+  historial: "REGISTRO DE CARTELERAS",
 };
 
 function actualizarVista() {
