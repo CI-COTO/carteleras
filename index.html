@@ -118,10 +118,14 @@
 
       <div id="histGrafico" hidden>
         <div class="hist-filters">
-          <div class="graf-switch" role="group" aria-label="Qué mostrar">
-            <button type="button" class="graf-btn" id="btnGrafCamp" aria-pressed="true">Por campaña</button>
-            <button type="button" class="graf-btn" id="btnGrafCat" aria-pressed="false">Por categoría</button>
-          </div>
+          <label class="hist-filter">
+            <span>Gráfico</span>
+            <select id="grfTipo"></select>
+          </label>
+          <label class="hist-filter" id="grfAgrupCampo" hidden>
+            <span>Agrupar por</span>
+            <select id="grfAgrup"></select>
+          </label>
           <div class="hist-filter mes-filter" id="grfMesWrap">
             <span id="grfMesLabel">Mes</span>
             <details id="grfMes" class="mes-details">
@@ -129,9 +133,15 @@
               <div class="mes-panel" id="grfMesPanel"></div>
             </details>
           </div>
+          <div class="hist-buttons">
+            <button type="button" class="btn primary" id="btnPdf">Descargar PDF</button>
+          </div>
         </div>
         <p class="hist-count" id="grfTotal" role="status"></p>
-        <div class="graf-bars" id="grfBars"></div>
+        <div class="graf-box">
+          <canvas id="grfCanvas" role="img" aria-label="Gráfico de barras"></canvas>
+          <p class="hist-empty" id="grfVacio" hidden></p>
+        </div>
       </div>
     </section>
   </main>
@@ -254,7 +264,8 @@
           <ul>
             <li>En <b>Registro</b> ves todas las comunicaciones en una tabla (submenú <b>Historial</b>) y podés filtrar por categoría, campaña, estado y <b>mes</b> (podés tildar varios meses a la vez).</li>
             <li>Tocá el encabezado de una columna para <b>ordenar</b>; tocá de nuevo para invertir el orden. En el celular se elige desde "Ordenar por".</li>
-            <li>El submenú <b>Gráfico</b> muestra cuántas publicaciones ya se subieron, en barras: por <b>campaña</b> (a dónde) o por <b>categoría</b> (qué valor). Tiene su propio filtro de mes.</li>
+            <li>El submenú <b>Gráfico</b> muestra estadísticas en barras verticales: por campaña, por categoría, por mes, por estado, campaña por categoría, subidas a tiempo vs. con atraso y cuánto tiempo estuvo publicada cada una (se puede agrupar). Pasá el mouse (o tocá una barra) para ver el detalle. Tiene su propio filtro de mes.</li>
+            <li><b>Descargar PDF</b> baja el gráfico que estás viendo, con su filtro de mes.</li>
             <li><b>Descargar Excel</b> baja solo lo que está filtrado en pantalla, en el mismo orden que ves, con filtros en cada columna.</li>
             <li>Tocá una fila para abrir su detalle.</li>
           </ul>
