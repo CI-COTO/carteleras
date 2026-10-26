@@ -541,6 +541,28 @@ input[type="date"]:disabled { background: #f3f3f3; color: #9a9a9a; }
   background: #fff;
 }
 .hist-filter select:focus-visible { outline: 3px solid rgba(232, 71, 58, .3); border-color: var(--red); }
+.sub-switch, .graf-switch {
+  display: inline-flex; gap: 4px; padding: 3px;
+  border: 1.5px solid var(--red); border-radius: 999px;
+}
+.sub-switch { margin-bottom: 14px; }
+.sub-btn, .graf-btn {
+  border: 0; background: transparent; color: var(--red);
+  font: inherit; font-weight: 600; font-size: 13px;
+  padding: 6px 16px; border-radius: 999px; cursor: pointer;
+}
+.sub-btn[aria-current="true"], .graf-btn[aria-pressed="true"] { background: var(--red); color: #fff; }
+.sub-btn:not([aria-current="true"]):hover, .graf-btn[aria-pressed="false"]:hover { background: #fdecea; }
+.sub-btn:focus-visible, .graf-btn:focus-visible { outline: 3px solid rgba(232,71,58,.4); outline-offset: 2px; }
+
+.graf-bars { border: 1px solid var(--line); background: var(--paper); padding: 14px 16px; display: grid; gap: 10px; }
+.graf-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) 36px; gap: 12px; align-items: center; }
+.graf-label { font-size: 14px; font-weight: 600; }
+.graf-track { height: 26px; background: #eeeeee; border-radius: 4px; overflow: hidden; display: block; }
+.graf-fill { display: block; height: 100%; min-width: 0; border-radius: 4px; transition: width .25s ease; }
+.graf-num { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.graf-bars .hist-empty { margin: 0; }
+
 .th-sort {
   font: inherit; font-weight: inherit; color: inherit;
   background: none; border: 0; padding: 0;
@@ -662,6 +684,8 @@ th[aria-sort="ascending"] .th-flecha, th[aria-sort="descending"] .th-flecha { op
   .hist-filter select { min-width: 0; width: 100%; }
   .hist-table thead { display: none; }
   .hist-sort-mobile { display: flex; }
+  .graf-row { grid-template-columns: 1fr 36px; gap: 4px 10px; }
+  .graf-label { grid-column: 1 / -1; }
   .hist-table, .hist-table tbody, .hist-table tr, .hist-table td { display: block; width: 100%; }
   .hist-table tr { border-top: 1px solid #cfcfcf; padding: 8px 4px; }
   .hist-table tr:first-child { border-top: 0; }
