@@ -720,13 +720,39 @@ const rsJoin = (a) => (a.length > 1 ? a.slice(0, -1).join(", ") + " y " + a[a.le
 const rsDur = (r) => diffDias(r.h, r.d) + 1; // días de vigencia, contando el primero y el último
 const rsBucket = (r) => { if (!r.h) return 5; const d = rsDur(r); return d <= 1 ? 0 : d <= 3 ? 1 : d <= 7 ? 2 : d <= 15 ? 3 : 4; };
 
+const RS_DESDE = "2026-07"; // el Gráfico muestra desde julio de 2026
+
+function rsMesesEntre(a, b) {
+  const out = [];
+  let [y, m] = a.split("-").map(Number);
+  const [y2, m2] = b.split("-").map(Number);
+  while (y < y2 || (y === y2 && m <= m2)) {
+    out.push(`${y}-${pad(m)}`);
+    if (++m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+
+// Meses en que la pieza estuvo en pantalla: desde su Fecha Desde hasta que se bajó (o hasta hoy si sigue publicada).
+// Las pendientes y las subidas que todavía no se publicaron no cuentan. Una bajada sin ninguna fecha cuenta solo en su mes de inicio.
+function rsMesesActiva(i) {
+  const hoyM = hoyISO().slice(0, 7);
+  if (!i.publicada) return [];
+  const fin = i.bajada ? (ISO_RE.test(i.bajadaEl ?? "") ? i.bajadaEl : fechaHastaDe(i) || i.fecha) : hoyISO();
+  const hasta = fin.slice(0, 7) > hoyM ? hoyM : fin.slice(0, 7);
+  const desde = i.fecha.slice(0, 7);
+  return desde > hasta ? [] : rsMesesEntre(desde, hasta).filter((m) => m >= RS_DESDE);
+}
+
+// Piezas activas desde julio, con los meses en que estuvieron en pantalla
 function rsRegistros() {
   return items.filter(itemValido).map((i) => ({
     n: nombreArchivo(i) || i.titulo, cat: i.categoria, c: catDe(i).label,
     k: textoCarteleras(i) || "Sin campaña", e: estadoDe(i), d: i.fecha, h: fechaHastaDe(i) || null,
+    ms: rsMesesActiva(i),
     // días entre la carga y el inicio: negativo = cargada tarde, positivo = con anticipación
     l: ISO_RE.test(i.completadaEl ?? "") ? diffDias(i.fecha, i.completadaEl) : null,
-  }));
+  })).filter((r) => r.ms.length);
 }
 
 function rsEtiquetaMes(m, variosAnios) {
@@ -749,10 +775,10 @@ function rsAplicarBloques() {
 async function renderGrafico() {
   rsAplicarBloques();
   const R = rsRegistros();
-  const meses = [...new Set(R.map((r) => r.d.slice(0, 7)))].sort();
+  const meses = [...new Set(R.flatMap((r) => r.ms))].sort();
   if (rsSel !== "all" && !meses.includes(rsSel)) rsSel = "all";
   const variosAnios = new Set(meses.map((m) => m.slice(0, 4))).size > 1;
-  const s = rsSel === "all" ? R : R.filter((r) => r.d.slice(0, 7) === rsSel);
+  const s = rsSel === "all" ? R : R.filter((r) => r.ms.includes(rsSel));
   const n = s.length;
   const cats = RS_CATS.filter(([k]) => R.some((r) => r.cat === k));
   const nomCat = (k) => CATEGORIAS[k].label;
@@ -761,11 +787,11 @@ async function renderGrafico() {
   // Encabezado y selector de mes
   const mes = (m) => `${RS_MES[Number(m.slice(5)) - 1]}${variosAnios ? " de " + m.slice(0, 4) : ""}`;
   $("#rsSub").textContent = meses.length
-    ? `${plural(R.length, "pieza", "piezas")} entre ${mes(meses[0])} y ${mes(meses.at(-1))}${variosAnios ? "" : " de " + meses[0].slice(0, 4)}`
-    : "Todavía no hay piezas cargadas";
+    ? `${plural(R.length, "pieza activa", "piezas activas")} entre ${mes(meses[0])} y ${mes(meses.at(-1))}${variosAnios ? "" : " de " + meses[0].slice(0, 4)}`
+    : "Todavía no hay piezas activas desde julio de 2026";
   const selMes = $("#rsMesSel");
   selMes.replaceChildren(
-    ...[["all", "Todos", R.length], ...meses.map((m) => [m, rsEtiquetaMes(m, variosAnios), R.filter((r) => r.d.slice(0, 7) === m).length])]
+    ...[["all", "Todos", R.length], ...meses.map((m) => [m, rsEtiquetaMes(m, variosAnios), R.filter((r) => r.ms.includes(m)).length])]
       .map(([k, t, c]) => h("option", { value: k, text: `${t} (${c})` }))
   );
   selMes.value = rsSel;
@@ -777,7 +803,7 @@ async function renderGrafico() {
   const tops = cats.filter((_, i) => cc[i] === mx && mx > 0).map(([k]) => nomCat(k));
   const dm = rsMed(s.filter((r) => r.h).map(rsDur));
   const nh = s.filter((r) => !r.h).length;
-  const kpis = [[n, "piezas"], [tops.length ? (tops.length > 1 ? "Empate" : tops[0]) : "—", "categoría con más piezas"],
+  const kpis = [[n, n === 1 ? "pieza activa" : "piezas activas"], [tops.length ? (tops.length > 1 ? "Empate" : tops[0]) : "—", "categoría con más piezas"],
     [dm === null ? "—" : `${Math.round(dm)} días`, "duración mediana"], [nh, "sin Fecha Hasta"]];
   $("#rsKpis").replaceChildren(...kpis.map(([v, t]) => h("div", { class: "rs-kpi" }, h("b", { text: v }), h("span", { text: t }))));
 
@@ -785,7 +811,7 @@ async function renderGrafico() {
   const cen = s.filter((r) => r.k === "Central").length, suc = s.filter((r) => r.k === "Sucursales").length, amb = s.filter((r) => r.k === "Central / Sucursales").length;
   const Ls = s.filter((r) => r.l !== null), same = Ls.filter((r) => r.l === 0).length;
   const sh = s.filter((r) => r.h && rsDur(r) <= 3).length, wh = s.filter((r) => r.h).length;
-  let t = `${plural(n, "pieza", "piezas")}.`;
+  let t = `${plural(n, "pieza activa", "piezas activas")}.`;
   if (tops.length) t += ` ${tops.length > 1 ? "Las categorías con más piezas fueron " : "La categoría con más piezas fue "}${rsJoin(tops)} (${mx}).`;
   t += ` Por campaña, ${cen} en Central, ${suc} en Sucursales${amb ? " y " + amb + " en ambas" : ""}.`;
   if (dm !== null) t += ` La duración mediana fue de ${Math.round(dm)} ${Math.round(dm) === 1 ? "día" : "días"}.`;
@@ -802,7 +828,7 @@ async function renderGrafico() {
   };
   $("#n2").textContent = L;
   $("#n3").textContent = `${L}. Ambas es una pieza para Central y Sucursales.`;
-  $("#rsPie").textContent = `Datos de la base al ${fmtCorta(hoyISO())}.`;
+  $("#rsPie").textContent = `Datos de la base al ${fmtCorta(hoyISO())}. Se cuentan las piezas publicadas desde julio de 2026, en cada mes en que estuvieron en pantalla; las que no se publicaron todavía no cuentan.`;
 
   // Datos de los gráficos
   const hoyD = hoyISO();
@@ -847,7 +873,7 @@ async function renderGrafico() {
   const c7 = lista(done, (x) => rsNm(x.r.n), (x) => `${x.d} días · ${x.r.c} · ${rsFd(x.r.d)} al ${rsFd(x.r.h)}`);
 
   rsCharts = [
-    bar("c1", { labels: meses.map((m) => rsEtiquetaMes(m, variosAnios)), datasets: cats.map(([k, c]) => ({ label: nomCat(k), backgroundColor: c, data: meses.map((m) => R.filter((r) => r.cat === k && r.d.slice(0, 7) === m).length) })) }, { plugins: leyenda, scales: apiladoY }),
+    bar("c1", { labels: meses.map((m) => rsEtiquetaMes(m, variosAnios)), datasets: cats.map(([k, c]) => ({ label: nomCat(k), backgroundColor: c, data: meses.map((m) => R.filter((r) => r.cat === k && r.ms.includes(m)).length) })) }, { plugins: leyenda, scales: apiladoY }),
     bar("c2", { labels: cats.map(([k]) => nomCat(k)), datasets: [{ data: cc, backgroundColor: cats.map(([, c]) => c) }] }, { indexAxis: "y", plugins: noLeg, scales: { x: ent } }),
     bar("c3", { labels: ["Central", "Sucursales", "Ambas", ...otras], datasets: [{ data: [...campanas, ...otras].map((k) => s.filter((r) => r.k === k).length), backgroundColor: RS_ROJO }] }, { plugins: noLeg, scales: { y: ent } }),
     bar("c4", { labels: ["1 día", "2 a 3 días", "4 a 7 días", "8 a 15 días", "Más de 15 días", "Sin Fecha Hasta"], datasets: cats.map(([k, c]) => ({ label: nomCat(k), backgroundColor: c, data: [0, 1, 2, 3, 4, 5].map((b) => s.filter((r) => r.cat === k && rsBucket(r) === b).length) })) }, { plugins: leyenda, scales: apiladoY }),
