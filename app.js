@@ -693,7 +693,6 @@ function renderHistorial() {
   document.querySelectorAll(".hist-table th[data-col]").forEach((th) => {
     const activa = th.dataset.col === orden.col;
     th.setAttribute("aria-sort", activa ? (orden.dir === 1 ? "ascending" : "descending") : "none");
-    th.querySelector(".th-flecha").textContent = activa ? (orden.dir === 1 ? " ▲" : " ▼") : "";
   });
   $("#fltOrden").value = orden.col ? `${orden.col}:${orden.dir}` : "";
   const total = items.filter(itemValido).length;
