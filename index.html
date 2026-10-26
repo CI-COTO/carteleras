@@ -60,6 +60,12 @@
 
     <!-- Vista: historial -->
     <section id="viewHistorial" aria-label="Historial de carteleras" hidden>
+      <div class="sub-switch" role="tablist" aria-label="Historial">
+        <button type="button" class="sub-btn" id="btnSubTabla" role="tab" aria-current="true">Historial</button>
+        <button type="button" class="sub-btn" id="btnSubGrafico" role="tab" aria-current="false">Gráfico</button>
+      </div>
+
+      <div id="histTabla">
       <div class="hist-filters">
         <label class="hist-filter">
           <span>Categoría</span>
@@ -75,7 +81,7 @@
         </label>
         <div class="hist-filter mes-filter" id="fltMesWrap">
           <span id="fltMesLabel">Mes</span>
-          <details id="fltMes">
+          <details id="fltMes" class="mes-details">
             <summary aria-labelledby="fltMesLabel fltMesResumen"><span id="fltMesResumen">Todos</span></summary>
             <div class="mes-panel" id="fltMesPanel"></div>
           </details>
@@ -107,6 +113,25 @@
           </thead>
           <tbody id="histBody"></tbody>
         </table>
+      </div>
+      </div>
+
+      <div id="histGrafico" hidden>
+        <div class="hist-filters">
+          <div class="graf-switch" role="group" aria-label="Qué mostrar">
+            <button type="button" class="graf-btn" id="btnGrafCamp" aria-pressed="true">Por campaña</button>
+            <button type="button" class="graf-btn" id="btnGrafCat" aria-pressed="false">Por categoría</button>
+          </div>
+          <div class="hist-filter mes-filter" id="grfMesWrap">
+            <span id="grfMesLabel">Mes</span>
+            <details id="grfMes" class="mes-details">
+              <summary aria-labelledby="grfMesLabel grfMesResumen"><span id="grfMesResumen">Todos</span></summary>
+              <div class="mes-panel" id="grfMesPanel"></div>
+            </details>
+          </div>
+        </div>
+        <p class="hist-count" id="grfTotal" role="status"></p>
+        <div class="graf-bars" id="grfBars"></div>
       </div>
     </section>
   </main>
@@ -229,6 +254,7 @@
           <ul>
             <li>En <b>Historial</b> ves todas las comunicaciones en una tabla y podés filtrar por categoría, campaña, estado y <b>mes</b> (podés tildar varios meses a la vez).</li>
             <li>Tocá el encabezado de una columna para <b>ordenar</b>; tocá de nuevo para invertir el orden. En el celular se elige desde "Ordenar por".</li>
+            <li>El submenú <b>Gráfico</b> muestra cuántas publicaciones ya se subieron, en barras: por <b>campaña</b> (a dónde) o por <b>categoría</b> (qué valor). Tiene su propio filtro de mes.</li>
             <li><b>Descargar Excel</b> baja solo lo que está filtrado en pantalla, en el mismo orden que ves, con filtros en cada columna.</li>
             <li>Tocá una fila para abrir su detalle.</li>
           </ul>

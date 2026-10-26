@@ -278,6 +278,9 @@ let detalleId = null;
 let formModo = "nuevo"; // "nuevo" | "editar"
 let formId = null;
 const filtros = { categoria: "", campana: "", estado: "", meses: new Set() }; // meses: "AAAA-MM"
+let subHist = "tabla"; // "tabla" | "grafico"
+let grafPor = "campana"; // "campana" | "categoria"
+const mesesGraf = new Set(); // filtro de mes propio del gráfico
 let orden = { col: null, dir: 1 }; // col null = más reciente primero
 
 const itemValido = (i) =>
@@ -317,6 +320,10 @@ function actualizarVista() {
   $("#viewCalendario").hidden = vista !== "calendario";
   $("#viewActivas").hidden = vista !== "activas";
   $("#viewHistorial").hidden = vista !== "historial";
+  $("#histTabla").hidden = subHist !== "tabla";
+  $("#histGrafico").hidden = subHist !== "grafico";
+  $("#btnSubTabla").setAttribute("aria-current", String(subHist === "tabla"));
+  $("#btnSubGrafico").setAttribute("aria-current", String(subHist === "grafico"));
   $("#monthNav").hidden = vista !== "calendario";
   $("#subtitle").textContent = TITULOS_VISTA[vista];
   $("#btnVistaCal").setAttribute("aria-current", String(vista === "calendario"));
@@ -331,6 +338,7 @@ function render() {
   $("#btnVistaAct").textContent = `Activas (${items.filter(itemValido).filter(esActiva).length})`;
   if (vista === "calendario") renderCalendario();
   else if (vista === "activas") renderActivas();
+  else if (subHist === "grafico") renderGrafico();
   else renderHistorial();
 
   // Si hay un detalle abierto, lo refrescamos (o lo cerramos si ya no existe)
@@ -592,7 +600,12 @@ function armarFiltros() {
     renderHistorial();
   });
   // El panel de meses se cierra al hacer clic afuera
-  document.addEventListener("click", (e) => { if (!e.target.closest("#fltMes")) $("#fltMes").open = false; });
+  document.addEventListener("click", (e) =>
+    document.querySelectorAll(".mes-details").forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
+  $("#btnSubTabla").addEventListener("click", () => { subHist = "tabla"; render(); });
+  $("#btnSubGrafico").addEventListener("click", () => { subHist = "grafico"; render(); });
+  $("#btnGrafCamp").addEventListener("click", () => { grafPor = "campana"; renderGrafico(); });
+  $("#btnGrafCat").addEventListener("click", () => { grafPor = "categoria"; renderGrafico(); });
   $("#btnExcel").addEventListener("click", descargarExcel);
 }
 
@@ -633,24 +646,65 @@ function itemsFiltrados() {
     });
 }
 
-// Meses (con año) que tienen comunicaciones, del más reciente al más viejo
-function renderFiltroMes() {
-  const meses = [...new Set(items.filter(itemValido).map(mesDe))].sort().reverse();
-  const nombre = (m) => `${NOMBRES_MES[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}`;
+const nombreMes = (m) => `${NOMBRES_MES[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}`;
+
+// Panel de meses con casillas (varios a la vez). Sirve para la tabla y para el gráfico.
+function pintarFiltroMes({ lista, seleccion, panel, resumen, alCambiar }) {
+  const meses = [...new Set(lista.map(mesDe))].sort().reverse();
   // Si un mes elegido ya no tiene comunicaciones, se descarta
-  [...filtros.meses].forEach((m) => { if (!meses.includes(m)) filtros.meses.delete(m); });
-  $("#fltMesPanel").replaceChildren(
+  [...seleccion].forEach((m) => { if (!meses.includes(m)) seleccion.delete(m); });
+  $(panel).replaceChildren(
     ...meses.map((m) =>
       h("label", { class: "mes-opt" },
         h("input", {
-          type: "checkbox", value: m, checked: filtros.meses.has(m),
-          onchange: (e) => { e.target.checked ? filtros.meses.add(m) : filtros.meses.delete(m); renderHistorial(); },
+          type: "checkbox", value: m, checked: seleccion.has(m),
+          onchange: (e) => { e.target.checked ? seleccion.add(m) : seleccion.delete(m); alCambiar(); },
         }),
-        nombre(m))
+        nombreMes(m))
     )
   );
-  const sel = [...filtros.meses].sort().reverse();
-  $("#fltMesResumen").textContent = !sel.length ? "Todos" : sel.length <= 2 ? sel.map(nombre).join(", ") : `${sel.length} meses`;
+  const sel = [...seleccion].sort().reverse();
+  $(resumen).textContent = !sel.length ? "Todos" : sel.length <= 2 ? sel.map(nombreMes).join(", ") : `${sel.length} meses`;
+}
+
+function renderFiltroMes() {
+  pintarFiltroMes({
+    lista: items.filter(itemValido), seleccion: filtros.meses,
+    panel: "#fltMesPanel", resumen: "#fltMesResumen", alCambiar: renderHistorial,
+  });
+}
+
+/* ---------- Gráfico ---------- */
+
+// Barras horizontales (HTML puro) con la cantidad de publicaciones ya subidas
+function renderGrafico() {
+  const subidas = items.filter(itemValido).filter((i) => i.completa);
+  pintarFiltroMes({
+    lista: subidas, seleccion: mesesGraf,
+    panel: "#grfMesPanel", resumen: "#grfMesResumen", alCambiar: renderGrafico,
+  });
+  const lista = subidas.filter((i) => !mesesGraf.size || mesesGraf.has(mesDe(i)));
+
+  const porCamp = grafPor === "campana";
+  const filas = porCamp
+    ? Object.entries(CARTELERAS).map(([k, label]) => ({ label, color: "var(--red)", n: lista.filter((i) => cartelerasDe(i).includes(k)).length }))
+    : Object.entries(CATEGORIAS).map(([k, c]) => ({ label: c.label, color: c.bg, n: lista.filter((i) => i.categoria === k).length }));
+  const max = Math.max(1, ...filas.map((f) => f.n));
+
+  $("#btnGrafCamp").setAttribute("aria-pressed", String(porCamp));
+  $("#btnGrafCat").setAttribute("aria-pressed", String(!porCamp));
+  $("#grfTotal").textContent = plural(lista.length, "publicación subida", "publicaciones subidas") +
+    (porCamp ? " · una publicación en varias campañas cuenta en cada una" : "");
+  $("#grfBars").replaceChildren(
+    ...(lista.length
+      ? filas.map((f) =>
+          h("div", { class: "graf-row" },
+            h("span", { class: "graf-label", text: f.label }),
+            h("span", { class: "graf-track", role: "img", "aria-label": `${f.label}: ${f.n}` },
+              h("span", { class: "graf-fill", style: `width:${(f.n / max) * 100}%;background:${f.color}` })),
+            h("span", { class: "graf-num", text: f.n })))
+      : [h("p", { class: "hist-empty", text: "No hay publicaciones subidas en estos meses." })])
+  );
 }
 
 const slugEstado = (e) => e.toLowerCase();
