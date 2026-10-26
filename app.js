@@ -287,10 +287,9 @@ let formModo = "nuevo"; // "nuevo" | "editar"
 let formId = null;
 const filtros = { categoria: "", campana: "", estado: "", meses: new Set() }; // meses: "AAAA-MM"
 let subHist = "tabla"; // "tabla" | "grafico"
-let grafTipo = "campana";
-let grafAgrup = "categoria"; // solo para "tiempo"
-let grafChart = null;
-const mesesGraf = new Set(); // filtro de mes propio del gráfico
+let rsSel = "all"; // mes elegido en el Gráfico: "all" o "AAAA-MM"
+let rsCharts = []; // gráficos de Chart.js activos
+let rsPdf = null; // lo que se ve, para el PDF
 let orden = { col: null, dir: 1 }; // col null = más reciente primero
 
 const itemValido = (i) =>
@@ -614,10 +613,6 @@ function armarFiltros() {
     document.querySelectorAll(".mes-details").forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
   $("#btnSubTabla").addEventListener("click", () => { subHist = "tabla"; render(); });
   $("#btnSubGrafico").addEventListener("click", () => { subHist = "grafico"; render(); });
-  $("#grfTipo").replaceChildren(...Object.entries(GRAFICOS).map(([k, g]) => h("option", { value: k, text: g.nombre })));
-  $("#grfAgrup").replaceChildren(...Object.entries(AGRUPACIONES).map(([k, t]) => h("option", { value: k, text: t })));
-  $("#grfTipo").addEventListener("change", (e) => { grafTipo = e.target.value; renderGrafico(); });
-  $("#grfAgrup").addEventListener("change", (e) => { grafAgrup = e.target.value; renderGrafico(); });
   $("#btnPdf").addEventListener("click", descargarPDF);
   $("#btnExcel").addEventListener("click", descargarExcel);
 }
@@ -703,212 +698,200 @@ function cargarScript(urls, global) {
   return probar(0);
 }
 
-const AGRUPACIONES = { categoria: "Categoría", campana: "Campaña", mes: "Mes" };
-const PALETA = ["#E8473A", "#5BC0E3", "#4FA83F", "#F47B2A", "#6B4A8A", "#FDD835", "#8d8d8d", "#2b2b2b"];
-const MES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-const etiquetaMes = (m) => `${MES_CORTO[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}`;
-const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0);
-const textoPub = (n) => plural(n, "publicación", "publicaciones");
-
-// Cada gráfico arma sus datos: { labels, datasets, base, nota?, ejeY, tooltip? }
-const GRAFICOS = {
-  campana: {
-    nombre: "Por campaña", base: "subidas",
-    datos: (lista) => ({
-      labels: Object.values(CARTELERAS),
-      datasets: [{ label: "Publicaciones", backgroundColor: "#E8473A",
-        data: Object.keys(CARTELERAS).map((k) => lista.filter((i) => cartelerasDe(i).includes(k)).length) }],
-      nota: "una publicación en varias campañas cuenta en cada una",
-    }),
-  },
-  categoria: {
-    nombre: "Por categoría", base: "subidas",
-    datos: (lista) => ({
-      labels: Object.values(CATEGORIAS).map((c) => c.label),
-      datasets: [{ label: "Publicaciones", backgroundColor: Object.values(CATEGORIAS).map((c) => c.bg),
-        data: Object.keys(CATEGORIAS).map((k) => lista.filter((i) => i.categoria === k).length) }],
-    }),
-  },
-  mes: {
-    nombre: "Por mes", base: "subidas",
-    datos: (lista) => {
-      const meses = [...new Set(lista.map(mesDe))].sort();
-      return {
-        labels: meses.map(etiquetaMes),
-        datasets: [{ label: "Publicaciones", backgroundColor: "#E8473A", data: meses.map((m) => lista.filter((i) => mesDe(i) === m).length) }],
-      };
-    },
-  },
-  estado: {
-    nombre: "Por estado", base: "todas",
-    datos: (lista) => ({
-      labels: ESTADOS,
-      datasets: [{ label: "Publicaciones", backgroundColor: ["#9aa0a6", "#5BC0E3", "#4FA83F", "#2b2b2b"],
-        data: ESTADOS.map((e) => lista.filter((i) => estadoDe(i) === e).length) }],
-    }),
-  },
-  campcat: {
-    nombre: "Campaña por categoría", base: "subidas",
-    datos: (lista) => ({
-      labels: Object.values(CARTELERAS),
-      datasets: Object.entries(CATEGORIAS)
-        .map(([k, c]) => ({ label: c.label, backgroundColor: c.bg,
-          data: Object.keys(CARTELERAS).map((cp) => lista.filter((i) => i.categoria === k && cartelerasDe(i).includes(cp)).length) }))
-        .filter((d) => d.data.some((n) => n > 0)),
-      nota: "una publicación en varias campañas cuenta en cada una",
-    }),
-  },
-  atiempo: {
-    nombre: "Subidas a tiempo vs. con atraso", base: "subidas",
-    datos: (lista) => {
-      const conFecha = lista.filter((i) => ISO_RE.test(i.completadaEl ?? ""));
-      const aTiempo = conFecha.filter((i) => i.completadaEl <= i.fecha).length;
-      return {
-        labels: ["A tiempo", "Con atraso", "Sin fecha de subida"],
-        datasets: [{ label: "Publicaciones", backgroundColor: ["#4FA83F", "#8c1d14", "#9aa0a6"],
-          data: [aTiempo, conFecha.length - aTiempo, lista.length - conFecha.length] }],
-        nota: "a tiempo = subida en o antes de la fecha de subida",
-      };
-    },
-  },
-  tiempo: {
-    nombre: "Tiempo publicada", base: "tiempo", ejeY: "Días publicada",
-    datos: (lista) => {
-      const clave = { categoria: (i) => catDe(i).label, campana: (i) => textoCarteleras(i) || "Sin campaña", mes: (i) => etiquetaMes(mesDe(i)) }[grafAgrup];
-      const orden = (i) => (grafAgrup === "mes" ? mesDe(i) : clave(i));
-      const filas = lista.slice().sort((a, b) => orden(a).localeCompare(orden(b), "es") || a.fecha.localeCompare(b.fecha));
-      const grupos = [...new Set(filas.map(clave))];
-      const color = (g) => (grafAgrup === "categoria"
-        ? Object.values(CATEGORIAS).find((c) => c.label === g)?.bg ?? "#9aa0a6"
-        : PALETA[grupos.indexOf(g) % PALETA.length]);
-      return {
-        labels: filas.map(claveArchivo),
-        // Un dataset por grupo, superpuestos: cada etiqueta tiene una sola barra y la leyenda muestra los grupos
-        datasets: grupos.map((g) => ({
-          label: g, backgroundColor: color(g), grouped: false,
-          data: filas.map((i) => (clave(i) === g ? diffDias(i.bajadaEl, i.publicadaEl) : null)),
-        })),
-        filas,
-      };
-    },
-  },
+// Resumen de carteleras: KPIs, resumen en texto y 7 gráficos, con el mismo diseño del informe de referencia
+const RS_CATS = [["coto", "#A30F0F"], ["mas", "#FFD43D"], ["compromiso", "#800080"], ["familia", "#008000"], ["argentinos", "#58CBFF"], ["innovacion", "#F47B2A"]];
+const RS_MES = NOMBRES_MES.map((m) => m.toLowerCase());
+const cap = (t) => t[0].toUpperCase() + t.slice(1);
+const rsFd = (iso) => `${Number(iso.slice(8))}/${Number(iso.slice(5, 7))}`;
+// "09-18-MenuPrimavera-Suc" -> "Menú Primavera Suc"
+const rsNm = (n) => n.replace(/^\d\d-\d\d[ -]?/, "").replace(/([a-záéíóúñ])([A-Z])/g, "$1 $2").replace(/[-_]/g, " ")
+  .replace(/\bDia\b/g, "Día").replace(/\bMenu\b/g, "Menú").replace(/ (De|La|Del|Las|Los)(?= )/g, (m) => m.toLowerCase());
+const rsMed = (a) => {
+  if (!a.length) return null;
+  a = [...a].sort((x, y) => x - y);
+  const n = a.length;
+  return n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2;
 };
+const rsJoin = (a) => (a.length > 1 ? a.slice(0, -1).join(", ") + " y " + a[a.length - 1] : a[0] || "");
+const rsDur = (r) => diffDias(r.h, r.d) + 1; // días de vigencia, contando el primero y el último
+const rsBucket = (r) => { if (!r.h) return 5; const d = rsDur(r); return d <= 1 ? 0 : d <= 3 ? 1 : d <= 7 ? 2 : d <= 15 ? 3 : 4; };
 
-// Las que se suben a la base con fechas reales de publicación y bajada
-const conTiempoReal = (i) => i.bajada && ISO_RE.test(i.publicadaEl ?? "") && ISO_RE.test(i.bajadaEl ?? "");
-
-function baseGrafico(tipo) {
-  const validas = items.filter(itemValido);
-  return tipo === "todas" ? validas : tipo === "tiempo" ? validas.filter(conTiempoReal) : validas.filter((i) => i.completa);
+function rsRegistros() {
+  return items.filter(itemValido).map((i) => ({
+    n: nombreArchivo(i) || i.titulo, cat: i.categoria, c: catDe(i).label,
+    k: textoCarteleras(i) || "Sin campaña", e: estadoDe(i), d: i.fecha, h: fechaHastaDe(i) || null,
+    // días entre la carga y el inicio: negativo = cargada tarde, positivo = con anticipación
+    l: ISO_RE.test(i.completadaEl ?? "") ? diffDias(i.fecha, i.completadaEl) : null,
+  }));
 }
 
-let ultimoGrafico = null; // lo que se ve, para el PDF
+function rsEtiquetaMes(m, variosAnios) {
+  const t = cap(RS_MES[Number(m.slice(5)) - 1]);
+  return variosAnios ? `${t} ${m.slice(0, 4)}` : t;
+}
 
 async function renderGrafico() {
-  const g = GRAFICOS[grafTipo];
-  $("#grfTipo").value = grafTipo;
-  $("#grfAgrupCampo").hidden = grafTipo !== "tiempo";
-  $("#grfAgrup").value = grafAgrup;
+  const R = rsRegistros();
+  const meses = [...new Set(R.map((r) => r.d.slice(0, 7)))].sort();
+  if (rsSel !== "all" && !meses.includes(rsSel)) rsSel = "all";
+  const variosAnios = new Set(meses.map((m) => m.slice(0, 4))).size > 1;
+  const s = rsSel === "all" ? R : R.filter((r) => r.d.slice(0, 7) === rsSel);
+  const n = s.length;
+  const cats = RS_CATS.filter(([k]) => R.some((r) => r.cat === k));
+  const nomCat = (k) => CATEGORIAS[k].label;
+  const L = rsSel === "all" ? (meses.length ? `${cap(RS_MES[Number(meses[0].slice(5)) - 1])} a ${RS_MES[Number(meses.at(-1).slice(5)) - 1]}` : "Sin datos") : rsEtiquetaMes(rsSel, variosAnios);
 
-  pintarFiltroMes({
-    lista: items.filter(itemValido), seleccion: mesesGraf,
-    panel: "#grfMesPanel", resumen: "#grfMesResumen", alCambiar: renderGrafico,
-  });
-  const lista = baseGrafico(g.base).filter((i) => !mesesGraf.size || mesesGraf.has(mesDe(i)));
-  const sujeto = { subidas: ["publicación subida", "publicaciones subidas"], todas: ["publicación", "publicaciones"], tiempo: ["publicación con fechas de publicación y bajada", "publicaciones con fechas de publicación y bajada"] }[g.base];
-  const datos = lista.length ? g.datos(lista) : null;
-  const total = plural(lista.length, ...sujeto) + (datos?.nota ? ` · ${datos.nota}` : "");
-  $("#grfTotal").textContent = total;
+  // Encabezado y selector de mes
+  const mes = (m) => `${RS_MES[Number(m.slice(5)) - 1]}${variosAnios ? " de " + m.slice(0, 4) : ""}`;
+  $("#rsSub").textContent = meses.length
+    ? `${plural(R.length, "pieza", "piezas")} entre ${mes(meses[0])} y ${mes(meses.at(-1))}${variosAnios ? "" : " de " + meses[0].slice(0, 4)}`
+    : "Todavía no hay piezas cargadas";
+  $("#rsMonths").replaceChildren(
+    ...[["all", "Todos", R.length], ...meses.map((m) => [m, rsEtiquetaMes(m, variosAnios), R.filter((r) => r.d.slice(0, 7) === m).length])].map(([k, t, c]) =>
+      h("button", { type: "button", class: "rs-m" + (rsSel === k ? " on" : ""), "aria-pressed": String(rsSel === k), onclick: () => { rsSel = k; renderGrafico(); } },
+        t, h("small", { text: `(${c})` })))
+  );
 
-  const vacio = $("#grfVacio");
-  vacio.hidden = !!lista.length;
-  $("#grfCanvas").hidden = !lista.length;
-  vacio.textContent = g.base === "tiempo"
-    ? "Todavía no hay publicaciones bajadas con fecha de publicación y de bajada. Las cargadas desde la planilla anterior no tienen esas fechas."
-    : "No hay publicaciones para los meses elegidos.";
-  if (grafChart) { grafChart.destroy(); grafChart = null; }
-  ultimoGrafico = null;
-  if (!lista.length) return;
+  // KPIs
+  const cc = cats.map(([k]) => s.filter((r) => r.cat === k).length);
+  const mx = Math.max(0, ...cc);
+  const tops = cats.filter((_, i) => cc[i] === mx && mx > 0).map(([k]) => nomCat(k));
+  const dm = rsMed(s.filter((r) => r.h).map(rsDur));
+  const nh = s.filter((r) => !r.h).length;
+  const kpis = [[n, "piezas"], [tops.length ? (tops.length > 1 ? "Empate" : tops[0]) : "—", "categoría con más piezas"],
+    [dm === null ? "—" : `${Math.round(dm)} días`, "duración mediana"], [nh, "sin Fecha Hasta"]];
+  $("#rsKpis").replaceChildren(...kpis.map(([v, t]) => h("div", { class: "rs-kpi" }, h("b", { text: v }), h("span", { text: t }))));
+
+  // Resumen en texto
+  const cen = s.filter((r) => r.k === "Central").length, suc = s.filter((r) => r.k === "Sucursales").length, amb = s.filter((r) => r.k === "Central / Sucursales").length;
+  const Ls = s.filter((r) => r.l !== null), same = Ls.filter((r) => r.l === 0).length;
+  const sh = s.filter((r) => r.h && rsDur(r) <= 3).length, wh = s.filter((r) => r.h).length;
+  let t = `${plural(n, "pieza", "piezas")}.`;
+  if (tops.length) t += ` ${tops.length > 1 ? "Las categorías con más piezas fueron " : "La categoría con más piezas fue "}${rsJoin(tops)} (${mx}).`;
+  t += ` Por campaña, ${cen} en Central, ${suc} en Sucursales${amb ? " y " + amb + " en ambas" : ""}.`;
+  if (dm !== null) t += ` La duración mediana fue de ${Math.round(dm)} ${Math.round(dm) === 1 ? "día" : "días"}.`;
+  if (wh) t += ` ${sh} de las ${wh} piezas con Fecha Hasta estuvieron 3 días o menos en pantalla.`;
+  if (Ls.length) t += ` De las ${Ls.length} piezas con Fecha carga, ${same} se subieron el mismo día en que empezaban.`;
+  if (nh) t += ` ${nh} ${nh === 1 ? "pieza no tiene" : "piezas no tienen"} Fecha Hasta.`;
+  const titulo = "Resumen de " + L.toLowerCase();
+  $("#rsSt").textContent = titulo;
+  $("#rsSum").textContent = t;
+  $("#rsCp").onclick = async (e) => {
+    const b = e.target;
+    try { await navigator.clipboard.writeText(`${titulo}. ${t}`); b.textContent = "Copiado"; } catch (_) { b.textContent = "No se pudo copiar"; }
+    setTimeout(() => (b.textContent = "Copiar resumen"), 1800);
+  };
+  $("#n2").textContent = L;
+  $("#n3").textContent = `${L}. Ambas es una pieza para Central y Sucursales.`;
+  $("#rsPie").textContent = `Datos de la base al ${fmtCorta(hoyISO())}.`;
+
+  // Datos de los gráficos
+  const hoyD = hoyISO();
+  const cur = R.filter((r) => r.e === "Publicada").map((r) => ({ r, d: diffDias(hoyD, r.d) + 1 })).sort((a, b) => b.d - a.d);
+  const done = R.filter((r) => r.e === "Bajada" && r.h).map((r) => ({ r, d: rsDur(r) })).sort((a, b) => b.d - a.d || a.r.d.localeCompare(b.r.d)).slice(0, 10);
+  $("#rsHoy").textContent = `Días en pantalla contados hasta hoy, ${rsFd(hoyD)}.`;
+  $("#box6").style.height = Math.max(220, cur.length * 26 + 70) + "px";
+
+  const colorCat = (k) => RS_CATS.find(([c]) => c === k)?.[1] ?? "#9aa0a6";
+  const campanas = ["Central", "Sucursales", "Central / Sucursales"];
+  const otras = [...new Set(s.map((r) => r.k))].filter((k) => !campanas.includes(k));
+  const lagCont = [Ls.filter((r) => r.l < 0).length, same, Ls.filter((r) => r.l > 0).length, n - Ls.length];
 
   let Chart;
   try {
     Chart = await cargarScript(CHARTJS_URLS, "Chart");
   } catch (err) {
     console.error(err);
-    $("#grfCanvas").hidden = true;
-    vacio.hidden = false;
-    vacio.textContent = "No se pudo cargar la librería de gráficos. Revisá la conexión y recargá la página.";
+    $("#rsError").hidden = false;
+    $("#rsError").textContent = "No se pudo cargar la librería de gráficos. Revisá la conexión y recargá la página.";
     return;
   }
-  // Si mientras cargaba se cambió de gráfico, no pisamos el nuevo
-  if (g !== GRAFICOS[grafTipo] || $("#histGrafico").hidden) return;
+  $("#rsError").hidden = true;
+  // Si mientras cargaba la librería se cambió de vista, no seguimos
+  if ($("#histGrafico").hidden) return;
 
-  const multi = datos.datasets.length > 1;
-  const totalDatos = datos.datasets.reduce((n, d) => n + d.data.reduce((a, b) => a + (b || 0), 0), 0);
-  grafChart = new Chart($("#grfCanvas"), {
-    type: "bar",
-    data: { labels: datos.labels, datasets: datos.datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 500 },
-      datasets: { bar: { maxBarThickness: 80 } },
-      interaction: { mode: "nearest", intersect: true },
-      plugins: {
-        legend: { display: multi, position: "bottom" },
-        tooltip: {
-          callbacks: grafTipo === "tiempo"
-            ? {
-                title: (it) => datos.filas[it[0].dataIndex] && claveArchivo(datos.filas[it[0].dataIndex]),
-                label: (it) => {
-                  const i = datos.filas[it.dataIndex];
-                  return [`${it.dataset.label}`, `Publicada: ${fmtCorta(i.publicadaEl)}`, `Bajada: ${fmtCorta(i.bajadaEl)}`, `${plural(it.parsed.y, "día", "días")} publicada`];
-                },
-              }
-            : {
-                label: (it) => `${it.dataset.label}: ${textoPub(it.parsed.y)}${multi ? "" : ` (${pct(it.parsed.y, totalDatos)}% del total)`}`,
-              },
-        },
-      },
-      scales: {
-        x: { title: { display: true, text: { campana: "Campaña", categoria: "Categoría", mes: "Mes", estado: "Estado", campcat: "Campaña", atiempo: "Subida", tiempo: "Publicación" }[grafTipo] }, grid: { display: false },
-             ticks: { autoSkip: false, maxRotation: grafTipo === "tiempo" ? 60 : 0, minRotation: grafTipo === "tiempo" ? 45 : 0 } },
-        y: { beginAtZero: true, title: { display: true, text: g.ejeY ?? "Publicaciones" }, ticks: { precision: 0 } },
-      },
-    },
+  Chart.defaults.color = "#6b6b6b";
+  Chart.defaults.borderColor = "#e3dede";
+  Chart.defaults.font.family = "Roboto, sans-serif";
+  rsCharts.forEach((c) => c.destroy());
+  const bar = (id, data, o) => new Chart($("#" + id), { type: "bar", data, options: { responsive: true, maintainAspectRatio: false, ...o } });
+  const noLeg = { legend: { display: false } };
+  const leyenda = { legend: { position: "bottom", labels: { boxWidth: 12 } } };
+  const ent = { beginAtZero: true, ticks: { precision: 0 } };
+  const apiladoY = { x: { stacked: true }, y: { stacked: true, ...ent } };
+  const conTip = (items_, tip) => ({ ...noLeg, tooltip: { callbacks: { label: (i) => tip(items_[i.dataIndex]) } } });
+  const lista = (arr, lab, tip) => ({
+    data: { labels: arr.map(lab), datasets: [{ data: arr.map((x) => x.d), backgroundColor: arr.map((x) => colorCat(x.r.cat)) }] },
+    o: { indexAxis: "y", plugins: conTip(arr, tip), scales: { x: { beginAtZero: true, title: { display: true, text: "días" } } } },
   });
-  ultimoGrafico = { nombre: g.nombre + (grafTipo === "tiempo" ? ` (agrupado por ${AGRUPACIONES[grafAgrup].toLowerCase()})` : ""), total };
+  const c6 = lista(cur, (x) => rsNm(x.r.n) + (x.r.h ? "" : " *"), (x) => `${x.d} días · ${x.r.c} · desde el ${rsFd(x.r.d)}${x.r.h ? ` (hasta el ${rsFd(x.r.h)})` : ", sin Fecha Hasta"}`);
+  const c7 = lista(done, (x) => rsNm(x.r.n), (x) => `${x.d} días · ${x.r.c} · ${rsFd(x.r.d)} al ${rsFd(x.r.h)}`);
+
+  rsCharts = [
+    bar("c1", { labels: meses.map((m) => rsEtiquetaMes(m, variosAnios)), datasets: cats.map(([k, c]) => ({ label: nomCat(k), backgroundColor: c, data: meses.map((m) => R.filter((r) => r.cat === k && r.d.slice(0, 7) === m).length) })) }, { plugins: leyenda, scales: apiladoY }),
+    bar("c2", { labels: cats.map(([k]) => nomCat(k)), datasets: [{ data: cc, backgroundColor: cats.map(([, c]) => c) }] }, { indexAxis: "y", plugins: noLeg, scales: { x: ent } }),
+    bar("c3", { labels: ["Central", "Sucursales", "Ambas", ...otras], datasets: [{ data: [...campanas, ...otras].map((k) => s.filter((r) => r.k === k).length), backgroundColor: "#455a64" }] }, { plugins: noLeg, scales: { y: ent } }),
+    bar("c4", { labels: ["1 día", "2 a 3 días", "4 a 7 días", "8 a 15 días", "Más de 15 días", "Sin Fecha Hasta"], datasets: cats.map(([k, c]) => ({ label: nomCat(k), backgroundColor: c, data: [0, 1, 2, 3, 4, 5].map((b) => s.filter((r) => r.cat === k && rsBucket(r) === b).length) })) }, { plugins: leyenda, scales: apiladoY }),
+    bar("c5", { labels: ["Cargada tarde", "El mismo día", "Con anticipación", "Sin fecha de carga"], datasets: [{ data: lagCont, backgroundColor: ["#A30F0F", "#6b7f8c", "#008000", "#c9c3c3"] }] }, { plugins: noLeg, scales: { y: ent } }),
+    bar("c6", c6.data, c6.o),
+    bar("c7", c7.data, c7.o),
+  ];
+  rsPdf = { titulo, sub: $("#rsSub").textContent, kpis, t, ids: ["c1", "c2", "c3", "c4", "c5", "c6", "c7"] };
 }
 
 async function descargarPDF() {
-  if (!grafChart || !ultimoGrafico) return toast("No hay un gráfico para descargar.");
+  if (!rsPdf || !rsCharts.length) return toast("Todavía no hay un gráfico para descargar.");
   const btn = $("#btnPdf");
   btn.disabled = true;
   try {
     const { jsPDF } = await cargarScript(JSPDF_URLS, "jspdf");
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    const ancho = doc.internal.pageSize.getWidth();
-    const alto = doc.internal.pageSize.getHeight();
-    const meses = mesesGraf.size ? [...mesesGraf].sort().map(nombreMes).join(", ") : "todos los meses";
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const ancho = doc.internal.pageSize.getWidth(), alto = doc.internal.pageSize.getHeight();
+    const margen = 14, util = ancho - margen * 2;
+    let y = 18;
+    const nueva = (necesito) => { if (y + necesito > alto - 12) { doc.addPage(); y = 16; } };
 
-    doc.setTextColor(207, 31, 27);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text("Planificación Carteleras Digitales", ancho / 2, 16, { align: "center" });
-    doc.setTextColor(43, 43, 43);
-    doc.setFontSize(14);
-    doc.text(ultimoGrafico.nombre, ancho / 2, 25, { align: "center" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`${ultimoGrafico.total}`, ancho / 2, 31, { align: "center" });
-    doc.text(`Meses: ${meses} · Generado el ${fmtCorta(hoyISO())}`, ancho / 2, 36, { align: "center" });
+    doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(163, 15, 15);
+    doc.text("Resumen de carteleras", ancho / 2, y, { align: "center" }); y += 7;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(107, 107, 107);
+    doc.text(`${rsPdf.sub} · Generado el ${fmtCorta(hoyISO())}`, ancho / 2, y, { align: "center" }); y += 10;
 
-    // La imagen conserva la proporción del gráfico y se ajusta a lo que queda de la hoja
-    const cv = $("#grfCanvas");
-    const maxW = ancho - 20, maxH = alto - 48;
-    const esc = Math.min(maxW / cv.width, maxH / cv.height);
-    const w = cv.width * esc, hh = cv.height * esc;
-    doc.addImage(grafChart.toBase64Image("image/png", 1), "PNG", (ancho - w) / 2, 42, w, hh);
-    doc.save(`grafico-${grafTipo}-${hoyISO()}.pdf`);
+    doc.setTextColor(34, 34, 34);
+    const anchoK = util / rsPdf.kpis.length;
+    rsPdf.kpis.forEach(([v, t], i) => {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(163, 15, 15);
+      doc.text(String(v), margen + anchoK * i + anchoK / 2, y, { align: "center", maxWidth: anchoK - 2 });
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(107, 107, 107);
+      doc.text(t, margen + anchoK * i + anchoK / 2, y + 5, { align: "center", maxWidth: anchoK - 2 });
+    });
+    y += 14;
+
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(34, 34, 34);
+    doc.text(cap(rsPdf.titulo), margen, y); y += 5;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+    const lineas = doc.splitTextToSize(rsPdf.t, util);
+    doc.text(lineas, margen, y); y += lineas.length * 4.6 + 6;
+
+    // Cada gráfico con su título y su nota
+    const cards = [...document.querySelectorAll("#histGrafico .rs-grid canvas")];
+    for (const cv of cards) {
+      const box = cv.closest(".rs-box");
+      const tit = box.previousElementSibling.tagName === "P" ? box.previousElementSibling.previousElementSibling : box.previousElementSibling;
+      const nota = box.previousElementSibling.tagName === "P" ? box.previousElementSibling.textContent : "";
+      const chart = rsCharts.find((c) => c.canvas === cv);
+      // Respeta la proporción del gráfico: si es muy alto, se achica también el ancho
+      const hh = Math.min(util * (cv.height / cv.width), 95), w = hh * (cv.width / cv.height);
+      nueva(hh + 16);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(34, 34, 34);
+      doc.text(tit.textContent, margen, y); y += 4.5;
+      if (nota) {
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(107, 107, 107);
+        const ln = doc.splitTextToSize(nota, util); doc.text(ln, margen, y); y += ln.length * 3.6 + 1;
+      }
+      doc.addImage(chart.toBase64Image("image/png", 1), "PNG", margen + (util - w) / 2, y, w, hh);
+      y += hh + 8;
+    }
+    doc.save(`resumen-carteleras-${hoyISO()}.pdf`);
     toast("PDF descargado");
   } catch (err) {
     console.error(err);
