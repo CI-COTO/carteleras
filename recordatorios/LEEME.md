@@ -7,8 +7,13 @@ comunicaciones de Firestore y manda **una tarjeta** a Teams con lo que todavía 
 - ⏰ **Vencen hoy**.
 - 🗓️ **Próximas**: las que vencen en los próximos **7 días corridos**.
 
+Además avisa qué carteleras hay que **dar de baja** (publicadas y todavía no bajadas, con Fecha Hasta):
+
+- ⬇️ **Dar de baja ya**: las que ya pasaron su Fecha Hasta o vencen hoy.
+- ⬇️ **Para dar de baja esta semana**: las que vencen en los próximos **7 días corridos**.
+
 Reglas:
-- Solo cuenta el tilde de **Subida**. **Publicada** y **Bajada** son seguimiento y no generan avisos.
+- Los avisos de **subir** miran el tilde de **Subida**; los de **dar de baja** miran las publicadas sin **Bajada** que tienen Fecha Hasta. Las que no tienen fecha límite ("-") nunca piden baja.
 - Si el lunes o el miércoles es **feriado / no laborable**, el aviso se corre al **siguiente día hábil**
   (ej.: lunes 23/11 feriado → sale el martes 24/11). Sábados y domingos nunca.
 - Si está todo al día, no manda nada.

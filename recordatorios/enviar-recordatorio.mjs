@@ -6,7 +6,11 @@
      · las atrasadas (fecha límite pasada)
      · las que vencen hoy
      · las que vencen en los próximos 7 días corridos
-   Las etapas Publicada y Bajada son solo seguimiento: no generan avisos.
+   y también las carteleras PUBLICADAS que hay que DAR DE BAJA (todavía no bajadas):
+     · las que ya pasaron su Fecha Hasta
+     · las que la vencen hoy
+     · las que la vencen en los próximos 7 días corridos
+   Las comunicaciones sin Fecha Hasta ("sin fecha límite") nunca piden baja.
    Si no hay nada pendiente, no manda nada (para no hacer ruido).
 
    CUÁNDO ENVÍA: lunes y miércoles. Si ese día es feriado o no laborable,
@@ -199,6 +203,20 @@ function clasificar(items) {
     proximas: cfg.diasAviso > 0
       ? pendientes.filter((i) => i.fecha > cfg.hoy && i.fecha <= limite).sort(porFecha)
       : [],
+    ...clasificarBajas(items, limite),
+  };
+}
+
+// Publicadas que todavía no se bajaron y tienen Fecha Hasta (sin fecha hasta = sin fecha límite: no avisan)
+function clasificarBajas(items, limite) {
+  const fechaHasta = (i) => (typeof i.fechaHasta === "string" && /^\d{4}-\d{2}-\d{2}$/.test(i.fechaHasta) ? i.fechaHasta : "");
+  const aBajar = items.filter((i) => esValida(i) && i.publicada && !i.bajada && fechaHasta(i));
+  const porHasta = (a, b) => fechaHasta(a).localeCompare(fechaHasta(b)) || a.titulo.localeCompare(b.titulo, "es");
+  return {
+    bajarYa: aBajar.filter((i) => fechaHasta(i) <= cfg.hoy).sort(porHasta),
+    bajarProximas: cfg.diasAviso > 0
+      ? aBajar.filter((i) => fechaHasta(i) > cfg.hoy && fechaHasta(i) <= limite).sort(porHasta)
+      : [],
   };
 }
 
@@ -217,7 +235,15 @@ function cuandoVence(i) {
   return `Vence el ${diaSemana(i.fecha)} ${fmtCorta(i.fecha)} · en ${d} días`;
 }
 
-function filaItem(i) {
+function cuandoSeBaja(i) {
+  const d = diffDias(i.fechaHasta, cfg.hoy);
+  if (d < 0) return `Debía bajarse el ${fmtCorta(i.fechaHasta)} · ${plural(-d, "día", "días")} de atraso`;
+  if (d === 0) return "Se baja hoy";
+  if (d === 1) return `Se baja mañana (${fmtCorta(i.fechaHasta)})`;
+  return `Se baja el ${diaSemana(i.fechaHasta)} ${fmtCorta(i.fechaHasta)} · en ${d} días`;
+}
+
+function filaItem(i, cuando = cuandoVence) {
   const cat = CATEGORIAS[i.categoria] || { label: "Sin categoría", emoji: "⚪" };
   const archivo = typeof i.archivo === "string" ? i.archivo.trim() : "";
   return {
@@ -230,14 +256,14 @@ function filaItem(i) {
         : []),
       {
         type: "TextBlock",
-        text: [cuandoVence(i), cat.label, textoCampana(i)].filter(Boolean).join(" · "),
+        text: [cuando(i), cat.label, textoCampana(i)].filter(Boolean).join(" · "),
         wrap: true, isSubtle: true, size: "Small", spacing: "None",
       },
     ],
   };
 }
 
-function seccion(titulo, estilo, lista) {
+function seccion(titulo, estilo, lista, cuando) {
   if (!lista.length) return [];
   const visibles = lista.slice(0, MAX_POR_GRUPO);
   const resto = lista.length - visibles.length;
@@ -248,7 +274,7 @@ function seccion(titulo, estilo, lista) {
     spacing: "Medium",
     items: [
       { type: "TextBlock", text: `${titulo} (${lista.length})`, weight: "Bolder", size: "Medium" },
-      ...visibles.map(filaItem),
+      ...visibles.map((i) => filaItem(i, cuando)),
       ...(resto > 0
         ? [{ type: "TextBlock", text: `… y ${resto} más. Miralas en el calendario.`, isSubtle: true, wrap: true }]
         : []),
@@ -256,17 +282,21 @@ function seccion(titulo, estilo, lista) {
   }];
 }
 
+const totalAvisos = (g) => g.atrasadas.length + g.hoy.length + g.proximas.length + g.bajarYa.length + g.bajarProximas.length;
+
 function armarTarjeta(g) {
-  const total = g.atrasadas.length + g.hoy.length + g.proximas.length;
+  const total = totalAvisos(g);
   const fechaTitulo = fmtLarga(cfg.hoy);
   const fechaCap = fechaTitulo.charAt(0).toUpperCase() + fechaTitulo.slice(1);
 
   const resumen = total === 0
-    ? "Todo al día: no hay comunicaciones pendientes de subir para estos días. ✅"
+    ? "Todo al día: no hay comunicaciones pendientes de subir ni carteleras para dar de baja en estos días. ✅"
     : [
         g.atrasadas.length ? plural(g.atrasadas.length, "atrasada", "atrasadas") : null,
-        g.hoy.length ? `${g.hoy.length} para hoy` : null,
-        g.proximas.length ? `${g.proximas.length} en los próximos ${plural(cfg.diasAviso, "día", "días")}` : null,
+        g.hoy.length ? `${g.hoy.length} para subir hoy` : null,
+        g.proximas.length ? `${g.proximas.length} para subir en los próximos ${plural(cfg.diasAviso, "día", "días")}` : null,
+        g.bajarYa.length ? `${plural(g.bajarYa.length, "cartelera", "carteleras")} para dar de baja ya` : null,
+        g.bajarProximas.length ? `${g.bajarProximas.length} para dar de baja en los próximos ${plural(cfg.diasAviso, "día", "días")}` : null,
       ].filter(Boolean).join(" · ");
 
   const body = [
@@ -276,6 +306,8 @@ function armarTarjeta(g) {
     ...seccion("⚠️ Atrasadas", "attention", g.atrasadas),
     ...seccion("⏰ Vencen hoy", "warning", g.hoy),
     ...seccion("🗓️ Próximas", "accent", g.proximas),
+    ...seccion("⬇️ Dar de baja ya (vencidas y de hoy)", "attention", g.bajarYa, cuandoSeBaja),
+    ...seccion("⬇️ Para dar de baja esta semana", "accent", g.bajarProximas, cuandoSeBaja),
   ];
 
   const actions = cfg.calendario
@@ -327,12 +359,13 @@ async function main() {
 
   const items = await leerComunicaciones();
   const grupos = clasificar(items);
-  const total = grupos.atrasadas.length + grupos.hoy.length + grupos.proximas.length;
+  const total = totalAvisos(grupos);
 
   console.log(
     `Hoy: ${cfg.hoy} · comunicaciones leídas: ${items.length} · ` +
     `atrasadas: ${grupos.atrasadas.length} · hoy: ${grupos.hoy.length} · ` +
-    `próximas (hasta ${grupos.limite}): ${grupos.proximas.length}`
+    `próximas (hasta ${grupos.limite}): ${grupos.proximas.length} · ` +
+    `para bajar ya: ${grupos.bajarYa.length} · para bajar hasta ${grupos.limite}: ${grupos.bajarProximas.length}`
   );
 
   if (total === 0 && !cfg.enviarSiVacio) {
